@@ -1,0 +1,176 @@
+/* Modern Renk ve Font Paleti */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Arka Plan Animasyonu */
+.stApp {
+    background: linear-gradient(-45deg, #f8fafc, #e2e8f0, #dbeafe, #f1f5f9) !important;
+    background-size: 400% 400% !important;
+    animation: gradientBG 15s ease infinite !important;
+}
+
+@keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Hero Section */
+.hero-section {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    padding: 3rem 2.5rem;
+    border-radius: 25px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 5px;
+    background: linear-gradient(90deg, #3b82f6, #60a5fa, #93c5fd);
+}
+
+/* Stat Box & Custom Card */
+.stat-box, .custom-card {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(10px);
+    padding: 2rem;
+    border-radius: 25px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: transform 0.3s ease;
+    margin-bottom: 1rem;
+}
+
+.stat-box:hover, .custom-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Login Button */
+.login-btn-premium {
+    background: linear-gradient(135deg, #004a99 0%, #0066cc 100%);
+    color: white !important;
+    padding: 12px 28px;
+    border-radius: 50px;
+    font-weight: 700;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 20px rgba(0, 74, 153, 0.3);
+    font-size: 14px;
+}
+
+.login-btn-premium:hover {
+    transform: scale(1.05);
+    text-decoration: none;
+    color: white !important;
+}
+
+/* Streamlit Standart Butonları */
+.stButton > button {
+    background: linear-gradient(135deg, #3b82f6, #60a5fa) !important;
+    color: white !important;
+    border-radius: 12px !important;
+    padding: 10px 20px !important;
+    font-weight: 600 !important;
+}
+
+/* Gizleme İşlemleri */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+
+/* Arkadaşının Modern Renk ve Font Paleti */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* === ARKADAŞININ MAVİ ANİMASYONLU ARKA PLANI (TÜM SİTEYE UYGULANDI) === */
+.stApp {
+    /* Ana Gradyan Geçişi */
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 25%, #bfdbfe 50%, #93c5fd 75%, #60a5fa 100%) !important;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Arkadaşının "Radial Gradient" Noktaları ve Dalga Efekti */
+.stApp::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: 
+        radial-gradient(4px 4px at 25% 35%, #3b82f6, transparent),
+        radial-gradient(3px 3px at 60% 75%, rgba(59,130,246,0.6), transparent),
+        radial-gradient(2px 2px at 15% 60%, #60a5fa, transparent),
+        radial-gradient(2px 2px at 85% 25%, rgba(96,165,250,0.7), transparent),
+        radial-gradient(1px 1px at 45% 15%, #93c5fd, transparent);
+    background-repeat: repeat;
+    background-size: 300px 200px;
+    animation: waveFloat 25s ease-in-out infinite;
+    opacity: 0.4;
+    pointer-events: none; /* Butonlara tıklamayı engellememesi için */
+}
+
+/* Yumuşak Dalga/Yüzme Animasyonu */
+@keyframes waveFloat {
+    0%, 100% { transform: translateX(0%) translateY(0%) scale(1); }
+    25% { transform: translateX(-5%) translateY(-2%) scale(1.02); }
+    50% { transform: translateX(-2%) translateY(-5%) scale(1.05); }
+    75% { transform: translateX(2%) translateY(-2%) scale(1.03); }
+}
+
+/* === KARTLAR VE DİĞER ELEMANLAR (CAM EFEKTİ) === */
+.hero-section, .custom-card, .stat-box {
+    background: rgba(255, 255, 255, 0.8) !important; /* Arkadaki mavilik hafifçe görünsün diye şeffaflık arttırıldı */
+    backdrop-filter: blur(12px);
+    border-radius: 25px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    margin-bottom: 1.5rem;
+}
+
+/* Stat Box'ların alt çizgisi arkadaşının mavisiyle uyumlu */
+.stat-box {
+    border-bottom: 5px solid #3b82f6 !important;
+}
+
+/* Giriş Butonu (Sağ üstteki) */
+.login-btn-premium {
+    background: linear-gradient(135deg, #004a99 0%, #0066cc 100%);
+    color: white !important;
+    padding: 12px 28px;
+    border-radius: 50px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 8px 20px rgba(0, 74, 153, 0.3);
+    transition: all 0.3s ease;
+}
+
+.login-btn-premium:hover {
+    transform: scale(1.05);
+    box-shadow: 0 12px 25px rgba(0, 74, 153, 0.4);
+}
+
+/* Standart Streamlit Butonları */
+.stButton > button {
+    background: linear-gradient(135deg, #3b82f6, #60a5fa) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* Streamlit Branding Temizliği */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
