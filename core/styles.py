@@ -26,6 +26,20 @@ def load_base_styles() -> None:
         .stButton > button:hover {
             transform: translateY(-1px);
         }
+
+        /* Sol üstteki sidebar açma butonunu gizle */
+        [data-testid="collapsedControl"] {
+            display: none;
+        }
+
+        /* Otomatik sayfa listesini gizle */
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+
+        [data-testid="stSidebarNav"] {
+            display: none;
+        }
         """
     )
 
@@ -66,82 +80,89 @@ def load_soft_background() -> None:
 def load_main_card_styles() -> None:
     _inject(
         """
-        .block-container {
-            max-width: 760px;
-            padding-top: 0.3rem !important;
-            padding-bottom: 0.3rem !important;
+        .main-card {
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 3rem 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.10);
+            max-width: 440px;
+            margin: 80px auto;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.4);
         }
 
-        .logo-container {
+        .custom-card, .modern-menu-card {
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.10);
+            border: 1px solid rgba(255,255,255,0.4);
+            margin-bottom: 20px;
+        }
+
+        .menu-item-pill {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: 600;
             display: flex;
-            justify-content: center;
             align-items: center;
-            margin-bottom: 0.1rem;   /* önceki değerden küçült */
+            gap: 8px;
         }
 
-        .logo-img {
-            width: 100%;
-            max-width: 360px;
-            height: auto;
-            display: block;
+        .afiyet-text {
+            color: #15803d;
+            font-size: 0.75rem;
+            font-weight: 800;
+            margin-top: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #3b82f6;
+            margin-bottom: 1rem;
         }
 
         .title {
             text-align: center;
-            font-size: 2.6rem;
-            font-weight: 800;
+            font-size: 1.8rem;
+            font-weight: 700;
             color: #1e293b;
-            margin: 0.2rem 0 0.2rem 0;
-            line-height: 1.1;
+            margin-bottom: 0.5rem;
         }
 
         .subtitle {
             text-align: center;
             color: #64748b;
-            font-size: 1.08rem;
-            margin: 0 0 1rem 0;
+            font-size: 1rem;
+            margin-bottom: 2rem;
         }
 
-        .stButton > button {
-            width: 100%;
-            max-width: 520px;
-            display: block;
-            margin: 10px auto 0 auto;
-            height: 58px;
-            border: none;
-            border-radius: 18px;
-            font-weight: 700;
-            font-size: 1.05rem;
-            background: white;
-            color: #1e293b;
-            box-shadow: 0 10px 24px rgba(15,23,42,0.08);
-            transition: all 0.25s ease;
-        }
-
-        .stButton > button:hover {
-            transform: translateY(-2px);
+        .support {
+            margin-top: 1.5rem;
+            color: #64748b;
+            font-size: 0.95rem;
         }
 
         .divider {
             text-align: center;
             color: #94a3b8;
-            margin: 0.9rem 0 0.35rem 0;
-            font-size: 0.95rem;
-        }
-
-        .support {
-            text-align: center;
-            color: #64748b;
-            font-size: 0.98rem;
-        }
-
-        /* Scroll'u engellemek için genel boşlukları bastır */
-        section.main > div {
-            padding-top: 0 !important;
+            margin: 1.5rem 0 1rem 0;
+            font-size: 0.9rem;
         }
         """
     )
-
 
 def load_login_page_styles() -> None:
     _inject(

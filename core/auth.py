@@ -67,6 +67,13 @@ def logout() -> None:
         "name": "",
     }
 
+    # İsteğe bağlı geçici ekran/session temizliği
+    if "admin_sub_page" in st.session_state:
+        del st.session_state["admin_sub_page"]
+
+    if "ariza_gonderildi" in st.session_state:
+        del st.session_state["ariza_gonderildi"]
+
 
 def require_login(required_role: str | None = None) -> bool:
     user = get_current_user()
@@ -80,7 +87,10 @@ def require_login(required_role: str | None = None) -> bool:
     return True
 
 
-def redirect_if_not_logged_in(required_role: str | None = None, redirect_page: str = HOME_PAGE) -> None:
+def redirect_if_not_logged_in(
+    required_role: str | None = None,
+    redirect_page: str = HOME_PAGE,
+) -> None:
     if not require_login(required_role):
         st.warning("Bu sayfayı görüntülemek için giriş yapmalısınız.")
         st.switch_page(redirect_page)
