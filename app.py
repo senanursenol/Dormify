@@ -10,8 +10,11 @@ from core.constants import (
 from core.styles import load_landing_styles
 from core.ui import render_logo
 
+# API Servislerimizi buraya ekliyoruz (Önceki adımda oluşturduğumuz elçi)
+from services.api_service import get_announcements, get_meal_menu
 
 def load_lottieurl(url: str):
+    """Animasyon dosyasını yükler."""
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
@@ -20,44 +23,35 @@ def load_lottieurl(url: str):
         pass
     return None
 
-
-def init_session_data() -> None:
-    if SESSION_ANNOUNCEMENTS not in st.session_state:
-        st.session_state[SESSION_ANNOUNCEMENTS] = [
-            {
-                "baslik": "Teknik Bakım Duyurusu",
-                "icerik": "İnternet altyapı çalışmaları nedeniyle bu gece kısa süreli kesintiler yaşanabilir.",
-                "etiket": "ACİL",
-                "renk": "#ef4444",
-            },
-            {
-                "baslik": "Bahar Şenliği Kayıtları",
-                "icerik": "Etkinlik katılım listesi lobi alanındaki panoya asılmıştır.",
-                "etiket": "YENİ",
-                "renk": "#3b82f6",
-            },
-        ]
-
-    if SESSION_MEAL_MENU not in st.session_state:
-        st.session_state[SESSION_MEAL_MENU] = "Yayla Çorbası, Tavuk Sote, Pilav, Meyve"
-
+def sync_data_from_api() -> None:
+    """
+    KRİTİK GÜNCELLEME: 
+    Verileri session_state'e hapsetmek yerine her sayfa yenilendiğinde 
+    API'den en taze veriyi çekip state'i günceller.
+    """
+    try:
+        # API servislerini kullanarak verileri çekiyoruz
+        st.session_state[SESSION_ANNOUNCEMENTS] = get_announcements()
+        st.session_state[SESSION_MEAL_MENU] = get_meal_menu()
+    except Exception:
+        # Bağlantı koparsa varsayılan değerler
+        st.session_state[SESSION_ANNOUNCEMENTS] = st.session_state.get(SESSION_ANNOUNCEMENTS, [])
+        st.session_state[SESSION_MEAL_MENU] = st.session_state.get(SESSION_MEAL_MENU, "Menü yüklenemedi.")
 
 def render_header() -> None:
+    """Üst bar: Logo ve Giriş butonu."""
     col1, col2, col3 = st.columns([1, 2, 1])
-
     with col2:
         render_logo(center=True, width=280)
-
     with col3:
         st.write("##")
         if st.button("Sisteme Giriş Yap →", key="nav_btn"):
             st.switch_page(LOGIN_SELECTION_PAGE)
 
-
 def render_hero(lottie_json) -> None:
+    """Hero alanı: Animasyon ve Başlık."""
     if lottie_json:
         st_lottie(lottie_json, height=350, key="main_home_anim")
-
     st.markdown(
         """
         <div style="text-align: center; margin-top: -20px; margin-bottom: 50px;">
@@ -73,32 +67,33 @@ def render_hero(lottie_json) -> None:
         unsafe_allow_html=True,
     )
 
-
 def render_announcements() -> None:
-    st.markdown(
-        '<h3 style="color:#1e293b; margin-bottom:20px;">📢 Güncel Bilgilendirmeler</h3>',
-        unsafe_allow_html=True,
-    )
+    """Canlı duyuruları kartlar halinde render eder."""
+    st.markdown('<h3 style="color:#1e293b; margin-bottom:20px;">📢 Güncel Bilgilendirmeler</h3>', unsafe_allow_html=True)
+    
+    duyurular = st.session_state.get(SESSION_ANNOUNCEMENTS, [])
+    
+    if not duyurular:
+        st.info("Şu an aktif bir duyuru bulunmamaktadır.")
+        return
 
-    for duyuru in st.session_state[SESSION_ANNOUNCEMENTS]:
+    for duyuru in duyurular:
         st.markdown(
             f"""
-            <div class="custom-card" style="border-left: 8px solid {duyuru["renk"]};">
-                <h4>{duyuru["baslik"]}</h4>
-                <p>{duyuru["icerik"]}</p>
+            <div class="custom-card" style="border-left: 8px solid {duyuru.get('renk', '#3b82f6')};">
+                <h4>{duyuru.get('baslik')}</h4>
+                <p>{duyuru.get('icerik')}</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-
 def render_menu_card() -> None:
-    st.markdown(
-        '<h3 style="color:#1e293b; margin-bottom:20px;">🍴 Bugün Ne Var?</h3>',
-        unsafe_allow_html=True,
-    )
+    """Yemek menüsünü ikonlu pill yapısında gösterir."""
+    st.markdown('<h3 style="color:#1e293b; margin-bottom:20px;">🍴 Bugün Ne Var?</h3>', unsafe_allow_html=True)
 
-    menu_items = st.session_state[SESSION_MEAL_MENU].split(", ")
+    menu_str = st.session_state.get(SESSION_MEAL_MENU, "")
+    menu_items = menu_str.split(", ") if menu_str else []
     icons = ["🍲", "🍗", "🍚", "🍎"]
 
     pills_html = "".join(
@@ -112,7 +107,7 @@ def render_menu_card() -> None:
         f"""
         <div class="modern-menu-card">
             <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 15px;">
-                {pills_html}
+                {pills_html if menu_items else "Menü bilgisi yok."}
             </div>
             <div class="afiyet-text">AFİYET OLSUN!</div>
         </div>
@@ -123,31 +118,6 @@ def render_menu_card() -> None:
     if st.button("🔧 Arıza Bildirimi", use_container_width=True, key="btn_ariza"):
         st.info("Lütfen önce giriş yapın.")
 
-
-def render_content() -> None:
-    st.markdown("<br>", unsafe_allow_html=True)
-    col_main, col_side = st.columns([2.5, 1], gap="large")
-
-    with col_main:
-        render_announcements()
-
-    with col_side:
-        render_menu_card()
-
-
-def render_footer() -> None:
-    st.markdown(
-        """
-        <center>
-            <p style='color:#94a3b8; padding:60px; font-size:12px;'>
-                © 2026 Dormify | Ensar Vakfı
-            </p>
-        </center>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def main() -> None:
     st.set_page_config(
         page_title="Dormify | Ensar Vakfı",
@@ -157,16 +127,25 @@ def main() -> None:
     )
 
     load_landing_styles()
-    init_session_data()
+    
+    # VERİ SENKRONİZASYONU: Her sayfa açıldığında API'den veriyi tazeler
+    sync_data_from_api()
 
-    lottie_home_json = load_lottieurl(
-        "https://lottie.host/f5b2c1e5-8c7a-4f9e-9b4e-5d3f2c1e8b9a/x9Y2K1vB8m.json"
-    )
+    lottie_home_json = load_lottieurl("https://lottie.host/f5b2c1e5-8c7a-4f9e-9b4e-5d3f2c1e8b9a/x9Y2K1vB8m.json")
 
     render_header()
     render_hero(lottie_home_json)
-    render_content()
-    render_footer()
+    
+    # İçerik kısmını yerleştiriyoruz
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_main, col_side = st.columns([2.5, 1], gap="large")
+    with col_main:
+        render_announcements()
+    with col_side:
+        render_menu_card()
+        
+    # Footer
+    st.markdown("<center><p style='color:#94a3b8; padding:60px; font-size:12px;'>© 2026 Dormify | Ensar Vakfı</p></center>", unsafe_allow_html=True)
 
-
-main()
+if __name__ == "__main__":
+    main()

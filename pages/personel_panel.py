@@ -1,45 +1,37 @@
 import streamlit as st
 
+# Sistem modülleri ve oturum yönetimi sabitleri
 from core.auth import get_display_name, logout, redirect_if_not_logged_in
 from core.constants import (
     ROLE_STAFF,
     STAFF_LOGIN_PAGE,
-    STATUS_CANCELLED,
-    STATUS_PENDING,
-    STATUS_SOLVED,
     SESSION_ADMIN_SUB_PAGE,
-    SESSION_ANNOUNCEMENTS,
-    SESSION_MEAL_MENU,
 )
 from core.styles import load_student_panel_page_styles
-from services.fault_service import (
+
+# API Servis katmanının dahil edilmesi
+# Buradaki fonksiyonlar api_service.py dosyasında tanımladığımız elçilerdir.
+from services.api_service import (
+    get_announcements, 
+    get_meal_menu, 
     get_all_faults,
-    get_status_counts,
-    get_status_label,
-    init_fault_state,
-    update_fault_status,
+    update_fault_api,
+    post_announcement,  # Yeni eklediğimiz duyuru gönderici
+    update_meal_api     # Yeni eklediğimiz yemek güncelleyici
 )
 
-
 def init_admin_state() -> None:
-    init_fault_state()
-
+    """Yönetim panelinin başlangıç durumlarını (sayfa navigasyonu) hazırlar."""
     if SESSION_ADMIN_SUB_PAGE not in st.session_state:
         st.session_state[SESSION_ADMIN_SUB_PAGE] = "secim"
 
-    if SESSION_ANNOUNCEMENTS not in st.session_state:
-        st.session_state[SESSION_ANNOUNCEMENTS] = []
-
-    if SESSION_MEAL_MENU not in st.session_state:
-        st.session_state[SESSION_MEAL_MENU] = "Yayla Çorbası, Tavuk Sote, Pilav, Meyve"
-
-
 def render_topbar(staff_name: str) -> None:
+    """Panelin en üstündeki başlık ve kullanıcı profil alanını oluşturur."""
     col_left, col_right = st.columns([6, 2])
 
     with col_left:
         st.markdown(
-            """
+            f"""
             <div class="topbar-wrap">
                 <div style="font-size: 1.4rem; font-weight: 800; color: #1e293b;">
                     ⚙️ Personel Kontrol Paneli
@@ -52,127 +44,138 @@ def render_topbar(staff_name: str) -> None:
     with col_right:
         with st.popover(f"{staff_name} 👤", use_container_width=True):
             st.markdown("### Hesap Menüsü")
-            st.caption("İşlem seçin")
-
             if st.button("🚪 Çıkış Yap", use_container_width=True):
                 logout()
                 st.switch_page(STAFF_LOGIN_PAGE)
 
 
 def render_menu_cards() -> None:
+    """Ana sayfadaki 3 ana işlem kartını (Duyuru, Yemek, Arıza) oluşturur."""
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.markdown('<div class="feature-card"><h3>📢 Duyuru</h3></div>', unsafe_allow_html=True)
-        if st.button("Duyuru Sayfasına Git", use_container_width=True):
+        st.markdown('<div class="feature-card"><h3>📢 Duyuru Yönetimi</h3></div>', unsafe_allow_html=True)
+        if st.button("Duyuruları Düzenle", use_container_width=True):
             st.session_state[SESSION_ADMIN_SUB_PAGE] = "duyuru"
             st.rerun()
 
     with col2:
-        st.markdown('<div class="feature-card"><h3>🍴 Yemek</h3></div>', unsafe_allow_html=True)
-        if st.button("Yemek Sayfasına Git", use_container_width=True):
+        st.markdown('<div class="feature-card"><h3>🍴 Yemek Menüsü</h3></div>', unsafe_allow_html=True)
+        if st.button("Menüyü Güncelle", use_container_width=True):
             st.session_state[SESSION_ADMIN_SUB_PAGE] = "yemek"
             st.rerun()
 
     with col3:
-        st.markdown('<div class="feature-card"><h3>🛠️ Arıza</h3></div>', unsafe_allow_html=True)
-        if st.button("Arıza Sayfasına Git", use_container_width=True):
+        st.markdown('<div class="feature-card"><h3>🛠️ Arıza Takibi</h3></div>', unsafe_allow_html=True)
+        if st.button("Arızaları Görüntüle", use_container_width=True):
             st.session_state[SESSION_ADMIN_SUB_PAGE] = "ariza"
             st.rerun()
 
 
 def render_back() -> None:
+    """Alt sayfalardan ana menüye dönüş butonunu oluşturur."""
     if st.button("← Panel Menüsüne Dön"):
         st.session_state[SESSION_ADMIN_SUB_PAGE] = "secim"
         st.rerun()
 
 
-# ---------------- DUYURU ----------------
+# ---------------- DUYURU YÖNETİMİ (GÜNCELLENDİ) ----------------
 def render_announcement_page() -> None:
+    """Yeni duyuru ekleme sayfası - API bağlantısı eklendi."""
     render_back()
-
-    title = st.text_input("Başlık")
-    content = st.text_area("İçerik")
-
-    if st.button("Yayınla", type="primary"):
-        if not title.strip():
-            st.error("Başlık boş bırakılamaz.")
-        elif not content.strip():
-            st.error("İçerik boş bırakılamaz.")
+    st.subheader("Yeni Duyuru Yayınla")
+    
+    title = st.text_input("Duyuru Başlığı", placeholder="Örn: Teknik Bakım")
+    content = st.text_area("Duyuru İçeriği", placeholder="Duyuru detaylarını buraya yazın...")
+    
+    if st.button("Sistemde Yayınla", type="primary", use_container_width=True):
+        if not title.strip() or not content.strip():
+            st.warning("Lütfen başlık ve içerik alanlarını doldurun.")
         else:
-            st.session_state[SESSION_ANNOUNCEMENTS].insert(
-                0,
-                {
-                    "baslik": title.strip(),
-                    "icerik": content.strip(),
-                    "etiket": "YENİ",
-                    "renk": "#3b82f6",
-                },
-            )
-            st.success("Duyuru eklendi.")
+            # API'ye yeni duyuruyu gönderiyoruz
+            res = post_announcement(title, content)
+            if res.get("status") == "success":
+                st.success("Duyuru tüm öğrencilere başarıyla iletildi!")
+                st.balloons() # Başarı kutlaması
+            else:
+                st.error("Duyuru yayınlanırken bir hata oluştu.")
 
 
-# ---------------- YEMEK ----------------
+# ---------------- YEMEK MENÜSÜ YÖNETİMİ (GÜNCELLENDİ) ----------------
 def render_menu_page() -> None:
+    """Günün yemek menüsünü API'den çeker ve günceller."""
     render_back()
+    st.subheader("Günlük Yemek Listesi")
+    
+    # Mevcut menüyü FastAPI'den çekip kutuya yazıyoruz
+    current_menu = get_meal_menu()
+    menu_value = st.text_area("Menü Detayları (Örn: Çorba, Ana Yemek, Pilav)", value=current_menu)
+    
+    if st.button("Tüm Sistemde Güncelle", type="primary", use_container_width=True):
+        # API'ye menü güncelleme isteği (PUT) gönderiyoruz
+        res = update_meal_api(menu_value)
+        if res.get("status") == "success":
+            st.success("Yemek menüsü başarıyla güncellendi!")
+        else:
+            st.error("Menü güncellenirken bir hata oluştu.")
 
-    menu_value = st.text_area(
-        "Menü",
-        value=st.session_state[SESSION_MEAL_MENU],
-    )
 
-    if st.button("Güncelle", type="primary"):
-        st.session_state[SESSION_MEAL_MENU] = menu_value
-        st.success("Menü güncellendi.")
-
-
-# ---------------- ARIZA ----------------
+# ---------------- ARIZA TAKİP SAYFASI ----------------
 def render_fault_page() -> None:
+    """
+    FastAPI'den gelen arızaları listeler ve 
+    personelin durum güncellemesi yapmasına olanak sağlar.
+    """
     render_back()
+    st.subheader("🛠️ Gelen Arıza Bildirimleri")
 
+    # Arızaları API'den çekiyoruz
     faults = get_all_faults()
 
     if not faults:
-        st.info("Arıza kaydı yok.")
+        st.info("Şu an sistemde aktif arıza bulunmuyor.")
         return
 
-    pending, solved, total = get_status_counts(faults)
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Toplam", total)
-    col2.metric("Beklemede", pending)
-    col3.metric("Çözüldü", solved)
-
+    st.divider()
+    
     for i, fault in enumerate(faults):
-        st.write(f"🚪 Oda {fault.get('oda_no')} - {fault.get('aciklama')}")
+        with st.container(border=True):
+            # Arıza Bilgilerini Göster
+            durum_rengi = "#ef4444" if fault.get("durum") == "Beklemede" else "#22c55e"
+            
+            st.markdown(f"**📍 Oda:** {fault.get('oda_no')} | **📌 Başlık:** {fault.get('baslik')}")
+            st.markdown(f"**Durum:** <span style='color:{durum_rengi};'>{fault.get('durum')}</span>", unsafe_allow_html=True)
+            st.write(f"📝 **Açıklama:** {fault.get('detay')}")
+            
+            # DURUM GÜNCELLEME BUTONLARI
+            c1, c2, c3 = st.columns(3)
+            
+            if c1.button("⏳ Beklemede", key=f"p{i}", use_container_width=True):
+                res = update_fault_api(i, "Beklemede")
+                if res["status"] == "success": st.rerun()
 
-        c1, c2, c3 = st.columns(3)
+            if c2.button("✅ Çözüldü", key=f"s{i}", use_container_width=True):
+                res = update_fault_api(i, "Çözüldü")
+                if res["status"] == "success": st.rerun()
 
-        if c1.button("Beklemede", key=f"p{i}"):
-            update_fault_status(fault["id"], STATUS_PENDING)
-            st.rerun()
-
-        if c2.button("Çözüldü", key=f"s{i}"):
-            update_fault_status(fault["id"], STATUS_SOLVED)
-            st.rerun()
-
-        if c3.button("İptal", key=f"c{i}"):
-            update_fault_status(fault["id"], STATUS_CANCELLED)
-            st.rerun()
+            if c3.button("❌ İptal Et", key=f"c{i}", use_container_width=True):
+                res = update_fault_api(i, "İptal Edildi")
+                if res["status"] == "success": st.rerun()
 
 
-# ---------------- MAIN ----------------
+# ---------------- ANA DÖNGÜ (MAIN) ----------------
 def main() -> None:
+    """Personel paneli giriş ve sayfa yönetimi."""
     redirect_if_not_logged_in(ROLE_STAFF, STAFF_LOGIN_PAGE)
-
     load_student_panel_page_styles()
     init_admin_state()
 
-    name = get_display_name("Personel")
-    render_topbar(name)
+    staff_name = get_display_name("Personel")
+    render_topbar(staff_name)
 
     page = st.session_state[SESSION_ADMIN_SUB_PAGE]
 
+    # Sayfa yönlendirmesi
     if page == "duyuru":
         render_announcement_page()
     elif page == "yemek":
@@ -183,4 +186,5 @@ def main() -> None:
         render_menu_cards()
 
 
-main()
+if __name__ == "__main__":
+    main()
