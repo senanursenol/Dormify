@@ -16,20 +16,18 @@ def render_topbar(student_name: str) -> None:
     left_col, right_col = st.columns([6, 2])
 
     with left_col:
-        st.markdown('<div class="topbar-wrap">', unsafe_allow_html=True)
-        render_logo(center=False, width=140)
-        st.markdown("</div>", unsafe_allow_html=True)
+        # LOGO BOYUTU BURADA GÜNCELLENDİ: width=140 -> width=170 yapıldı
+        render_logo(center=False, width=170)
 
     with right_col:
         with st.popover(f"{student_name} 👤", use_container_width=True):
             st.markdown("### Hesap Menüsü")
             st.caption("İşlem seçin")
 
-            st.markdown('<div class="menu-btn">', unsafe_allow_html=True)
+            # Boş kutu yaratan '<div class="menu-btn">' HTML kodları temizlendi
             if st.button("🚪 Çıkış Yap", use_container_width=True, key="cikis_menu"):
                 logout()
                 st.switch_page(HOME_PAGE)
-            st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_welcome(student_name: str) -> None:
@@ -61,10 +59,9 @@ def render_main_actions() -> None:
             """,
             unsafe_allow_html=True,
         )
-        st.markdown('<div class="primary-btn">', unsafe_allow_html=True)
+        # Boş kutu yaratan '<div class="primary-btn">' HTML kodları temizlendi
         if st.button("➕ Yeni Arıza Bildir", use_container_width=True, key="new_fault_button"):
             st.switch_page(STUDENT_FAULT_PAGE)
-        st.markdown("</div>", unsafe_allow_html=True)
 
     with col2:
         st.markdown(
@@ -80,10 +77,9 @@ def render_main_actions() -> None:
             """,
             unsafe_allow_html=True,
         )
-        st.markdown('<div class="primary-btn">', unsafe_allow_html=True)
+        # Boş kutu yaratan HTML kodları temizlendi
         if st.button("📋 Bildirimleri Gör", use_container_width=True, key="show_notifications_button"):
             st.switch_page(STUDENT_NOTIFICATIONS_PAGE)
-        st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown(
         """

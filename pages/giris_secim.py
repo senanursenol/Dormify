@@ -37,7 +37,9 @@ def render_footer() -> None:
     st.markdown(
         """
         <div class="divider">veya</div>
-        <div class="support">📞 0850 123 45 67</div>
+        <div class="support">📞 0531 695 99 62</div>
+        <div class="support">📧 beylikduzu.kiz.yurdu@ensar.org</div>
+
         """,
         unsafe_allow_html=True,
     )
