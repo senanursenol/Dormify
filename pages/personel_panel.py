@@ -122,14 +122,10 @@ def render_menu_page() -> None:
 
 # ---------------- ARIZA TAKİP SAYFASI ----------------
 def render_fault_page() -> None:
-    """
-    FastAPI'den gelen arızaları listeler ve 
-    personelin durum güncellemesi yapmasına olanak sağlar.
-    """
     render_back()
     st.subheader("🛠️ Gelen Arıza Bildirimleri")
 
-    # Arızaları API'den çekiyoruz
+    # Arızaları API'den (dolayısıyla veritabanından) çekiyoruz
     faults = get_all_faults()
 
     if not faults:
@@ -138,31 +134,49 @@ def render_fault_page() -> None:
 
     st.divider()
     
-    for i, fault in enumerate(faults):
+    for fault in faults:
+        # Veritabanındaki gerçek ID'yi alıyoruz (Eski kodda 'i' kullanılıyordu)
+        fault_id = fault.get("id") 
+        
         with st.container(border=True):
-            # Arıza Bilgilerini Göster
-            durum_rengi = "#ef4444" if fault.get("durum") == "Beklemede" else "#22c55e"
+            # Duruma göre renk belirleme
+            status = fault.get("durum", "Beklemede")
+            if status == "Beklemede":
+                durum_rengi = "#ef4444" # Kırmızı
+            elif status == "Çözüldü":
+                durum_rengi = "#22c55e" # Yeşil
+            else:
+                durum_rengi = "#64748b" # Gri (İptal)
             
             st.markdown(f"**📍 Oda:** {fault.get('oda_no')} | **📌 Başlık:** {fault.get('baslik')}")
-            st.markdown(f"**Durum:** <span style='color:{durum_rengi};'>{fault.get('durum')}</span>", unsafe_allow_html=True)
-            st.write(f"📝 **Açıklama:** {fault.get('detay')}")
+            st.markdown(f"**Durum:** <span style='color:{durum_rengi}; font-weight:bold;'>{status}</span>", unsafe_allow_html=True)
+            st.write(f"📝 **Açıklama:** {fault.get('aciklama')}") # Key ismini veritabanı modelinle aynı yap ('aciklama')
             
             # DURUM GÜNCELLEME BUTONLARI
-            c1, c2, c3 = st.columns(3)
+            # Personel_panel.py dosyasındaki BUTONLAR kısmını bununla değiştir:
             
-            if c1.button("⏳ Beklemede", key=f"p{i}", use_container_width=True):
-                res = update_fault_api(i, "Beklemede")
-                if res["status"] == "success": st.rerun()
+            # Artık 3 değil, 4 kolonumuz var!
+            c1, c2, c3, c4 = st.columns(4)
+            
+            if c1.button("⏳ Beklemede", key=f"p_{fault_id}", use_container_width=True):
+                res = update_fault_api(fault_id, "Beklemede")
+                if res.get("status") == "success": st.rerun()
 
-            if c2.button("✅ Çözüldü", key=f"s{i}", use_container_width=True):
-                res = update_fault_api(i, "Çözüldü")
-                if res["status"] == "success": st.rerun()
+            if c2.button("✅ Çözüldü", key=f"s_{fault_id}", use_container_width=True):
+                res = update_fault_api(fault_id, "Çözüldü")
+                if res.get("status") == "success": st.rerun()
 
-            if c3.button("❌ İptal Et", key=f"c{i}", use_container_width=True):
-                res = update_fault_api(i, "İptal Edildi")
-                if res["status"] == "success": st.rerun()
+            if c3.button("❌ İptal Et", key=f"c_{fault_id}", use_container_width=True):
+                res = update_fault_api(fault_id, "İptal Edildi")
+                if res.get("status") == "success": st.rerun()
 
-
+            # YENİ EKLENEN SİLME BUTONU
+            if c4.button("🗑️ Sil", key=f"d_{fault_id}", type="primary", use_container_width=True):
+                from services.api_service import delete_fault_api # Silme fonksiyonunu çağır
+                res = delete_fault_api(fault_id)
+                if res.get("status") == "success": 
+                    st.toast("Arıza kalıcı olarak silindi!", icon="🗑️")
+                    st.rerun()
 # ---------------- ANA DÖNGÜ (MAIN) ----------------
 def main() -> None:
     """Personel paneli giriş ve sayfa yönetimi."""

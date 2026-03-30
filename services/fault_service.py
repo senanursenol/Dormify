@@ -1,94 +1,67 @@
 from datetime import datetime
-from uuid import uuid4
+from core.database import SessionLocal
+from core.models import ArizaKaydi
+from core.constants import STATUS_CANCELLED, STATUS_PENDING, STATUS_SOLVED
 
-import streamlit as st
+def init_fault_state():
+    """Streamlit session_state uyumluluğu için boş bırakıldı (Gerekirse kullanılabilir)."""
+    pass
 
-from core.constants import (
-    SESSION_FAULTS,
-    STATUS_CANCELLED,
-    STATUS_PENDING,
-    STATUS_SOLVED,
-)
+def add_fault(student_number: str, room_number: str, description: str):
+    db = SessionLocal()
+    try:
+        new_record = ArizaKaydi(
+            ogrenci_no=student_number.strip(),
+            oda_no=room_number.strip(),
+            aciklama=description.strip(),
+            durum=STATUS_PENDING,
+            tarih=datetime.now().strftime("%d.%m.%Y %H:%M")
+        )
+        db.add(new_record)
+        db.commit()
+        db.refresh(new_record)
+        return new_record
+    finally:
+        db.close()
 
+def get_student_faults(student_number: str):
+    db = SessionLocal()
+    try:
+        # Veritabanından o öğrenciye ait kayıtları çekiyoruz
+        return db.query(ArizaKaydi).filter(ArizaKaydi.ogrenci_no == student_number).all()
+    finally:
+        db.close()
 
-def init_fault_state() -> None:
-    if SESSION_FAULTS not in st.session_state:
-        st.session_state[SESSION_FAULTS] = []
-
-
-def get_all_faults() -> list[dict]:
-    init_fault_state()
-    return st.session_state[SESSION_FAULTS]
-
-
-def add_fault(student_number: str, room_number: str, description: str) -> dict:
-    init_fault_state()
-
-    new_record = {
-        "id": str(uuid4()),
-        "ogrenci_no": student_number.strip(),
-        "oda_no": room_number.strip(),
-        "aciklama": description.strip(),
-        "tarih": datetime.now().strftime("%d.%m.%Y %H:%M"),
-        "durum": STATUS_PENDING,
-    }
-
-    st.session_state[SESSION_FAULTS].insert(0, new_record)
-    return new_record
-
-
-def get_student_faults(student_number: str) -> list[dict]:
-    init_fault_state()
-    return [
-        fault
-        for fault in st.session_state[SESSION_FAULTS]
-        if fault.get("ogrenci_no") == student_number
-    ]
-
-
-def get_status_counts(faults: list[dict]) -> tuple[int, int, int]:
-    pending_count = len([f for f in faults if f.get("durum") == STATUS_PENDING])
-    solved_count = len([f for f in faults if f.get("durum") == STATUS_SOLVED])
+def get_status_counts(faults: list):
+    """Veritabanından gelen Türkçe durum metinlerine göre sayım yapar."""
+    
+    # "Beklemede" olanları say
+    pending_count = len([f for f in faults if f.get("durum") == "Beklemede"])
+    
+    # "Çözüldü" olanları say
+    solved_count = len([f for f in faults if f.get("durum") == "Çözüldü"])
+    
+    # Toplam arıza sayısı
     total_count = len(faults)
+    
     return pending_count, solved_count, total_count
 
-
-def cancel_fault_by_id(fault_id: str) -> bool:
-    init_fault_state()
-
-    updated_faults = []
-    found = False
-
-    for fault in st.session_state[SESSION_FAULTS]:
-        if fault.get("id") == fault_id:
-            updated_faults.append({**fault, "durum": STATUS_CANCELLED})
-            found = True
-        else:
-            updated_faults.append(fault)
-
-    st.session_state[SESSION_FAULTS] = updated_faults
-    return found
-
-
-def update_fault_status(fault_id: str, new_status: str) -> bool:
-    init_fault_state()
-
-    if new_status not in {STATUS_PENDING, STATUS_SOLVED, STATUS_CANCELLED}:
+def update_fault_status(fault_id: int, new_status: str) -> bool:
+    db = SessionLocal()
+    try:
+        fault = db.query(ArizaKaydi).filter(ArizaKaydi.id == fault_id).first()
+        if fault:
+            fault.durum = new_status
+            db.commit()
+            return True
         return False
+    finally:
+        db.close()
 
-    updated_faults = []
-    found = False
-
-    for fault in st.session_state[SESSION_FAULTS]:
-        if fault.get("id") == fault_id:
-            updated_faults.append({**fault, "durum": new_status})
-            found = True
-        else:
-            updated_faults.append(fault)
-
-    st.session_state[SESSION_FAULTS] = updated_faults
-    return found
-
+def cancel_fault_by_id(fault_id: int) -> bool:
+    """Öğrencinin kendi bildirimini iptal etmesi için kullanılır."""
+    # Aslında bu bir durum güncellemesidir
+    return update_fault_status(fault_id, STATUS_CANCELLED)
 
 def get_status_label(status: str) -> str:
     if status == STATUS_SOLVED:

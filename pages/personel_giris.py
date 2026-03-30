@@ -3,6 +3,8 @@ import streamlit as st
 from core.auth import login_staff
 from core.constants import LOGIN_SELECTION_PAGE, STAFF_PANEL_PAGE
 from core.styles import load_student_login_styles, render_login_background_blobs
+from core.database import SessionLocal  # Bunu import etmeyi unutma
+from core.models import Yonetici
 
 
 def validate_login_input(username: str, password: str) -> str | None:
@@ -24,13 +26,25 @@ def handle_login(username: str, password: str) -> None:
     clean_username = username.strip()
     clean_password = password.strip()
 
-    # Geçici demo kontrolü
-    if clean_username == "admin" and clean_password == "ensar123":
-        login_staff(clean_username, name="Yönetici")
-        st.success("Giriş başarılı.")
-        st.switch_page(STAFF_PANEL_PAGE)
-    else:
-        st.error("Kullanıcı adı veya şifre hatalı!")
+    # 1. Veritabanı oturumu açalım
+    db = SessionLocal()
+    try:
+        # 2. Veritabanında bu kullanıcıyı arayalım
+        admin = db.query(Yonetici).filter(Yonetici.kullanici_adi == clean_username).first()
+
+        # 3. Kullanıcı var mı ve şifre doğru mu?
+        if admin and admin.sifre == clean_password:
+            login_staff(clean_username, name="Yönetici")
+            st.success("Giriş başarılı.")
+            st.switch_page(STAFF_PANEL_PAGE)
+        else:
+            st.error("Kullanıcı adı veya şifre hatalı!")
+            
+    except Exception as e:
+        st.error(f"Veritabanı hatası: {e}")
+    finally:
+        # 4. Bağlantıyı her zaman kapatalım
+        db.close()
 
 
 def render_login_card() -> None:

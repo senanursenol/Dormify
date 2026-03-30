@@ -63,12 +63,15 @@ def update_meal_api(new_menu: str):
 # 3. ARIZA BİLDİRİM İŞLEMLERİ (POST, GET & PUT)
 # ---------------------------------------------------------
 
-def send_fault_report(baslik: str, detay: str, oda_no: str):
+# services/api_service.py içindeki ilgili fonksiyonu bununla değiştir:
+
+def send_fault_report(baslik: str, detay: str, oda_no: str, ogrenci_no: str):
     """Öğrencinin oluşturduğu arıza bildirimini API'ye kaydeder."""
     payload = {
         "baslik": baslik,
         "detay": detay,
-        "oda_no": oda_no
+        "oda_no": oda_no,
+        "ogrenci_no": ogrenci_no  # ARTIK ÖĞRENCİ NUMARASI DA GİDİYOR!
     }
     try:
         response = requests.post(f"{BASE_URL}/report-fault", json=payload, timeout=5)
@@ -77,7 +80,6 @@ def send_fault_report(baslik: str, detay: str, oda_no: str):
         return {"status": "error", "message": f"Sunucu hatası: {response.status_code}"}
     except Exception as e:
         return {"status": "error", "message": f"Bağlantı hatası: {str(e)}"}
-
 def get_all_faults():
     """Sistemdeki tüm arıza kayıtlarını personel paneli için çeker."""
     try:
@@ -86,6 +88,17 @@ def get_all_faults():
         return response.json()
     except Exception as e:
         print(f"HATA (Arıza Listesi): {e}")
+        return []
+    
+def get_student_faults(student_number: str):
+    """Belirli bir öğrenciye ait arızaları API'den (veritabanından) çeker."""
+    try:
+        # FastAPI'de bu endpoint'in (uç noktanın) olması gerekir
+        response = requests.get(f"{BASE_URL}/student-faults/{student_number}", timeout=5)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"HATA (Öğrenci Arıza Çekme): {e}")
         return []
 
 def update_fault_api(fault_id: int, status: str):
@@ -96,6 +109,16 @@ def update_fault_api(fault_id: int, status: str):
             params={"yeni_durum": status}, 
             timeout=5
         )
+        return response.json()
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    
+    # services/api_service.py dosyasının en altına ekle:
+
+def delete_fault_api(fault_id: int):
+    """Personel panelinden gelen silme isteğini API'ye iletir."""
+    try:
+        response = requests.delete(f"{BASE_URL}/delete-fault/{fault_id}", timeout=5)
         return response.json()
     except Exception as e:
         return {"status": "error", "message": str(e)}

@@ -86,10 +86,12 @@ def render_form(student_number: str) -> None:
             else:
                 # Form geçerli ise API'ye POST isteği atılır
                 with st.spinner("Bildiriminiz FastAPI üzerinden iletiliyor..."):
+                    # Artık öğrenci numarasını API'nin beklediği gibi 'ogrenci_no' parametresiyle gönderiyoruz
                     result = send_fault_report(
-                        baslik=f"Öğrenci No: {student_number}", 
+                        baslik="Arıza Bildirimi", # Başlığı daha sade tutabilirsin
                         detay=description, 
-                        oda_no=room_number
+                        oda_no=room_number,
+                        ogrenci_no=student_number # İŞTE KRİTİK EKLENTİ BURASI!
                     )
                 
                 # API'den gelen yanıta göre UI yönlendirmesi yapılır

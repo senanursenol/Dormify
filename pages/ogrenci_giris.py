@@ -4,6 +4,8 @@ from core.auth import login_student
 from core.constants import HOME_PAGE, STUDENT_PANEL_PAGE
 from core.styles import load_student_login_styles, render_login_background_blobs
 
+from core.database import SessionLocal
+from core.models import Ogrenci
 
 def validate_login_input(student_number: str, password: str) -> str | None:
     clean_student_number = student_number.strip()
@@ -22,11 +24,27 @@ def validate_login_input(student_number: str, password: str) -> str | None:
     return None
 
 
-def handle_login(student_number: str) -> None:
-    login_student(student_number)
-    st.success("Giriş başarılı.")
-    st.switch_page(STUDENT_PANEL_PAGE)
+def handle_login(student_number: str, password: str) -> None: # password parametresini ekledik
+    clean_no = student_number.strip()
+    clean_pass = password.strip()
 
+    db = SessionLocal()
+    try:
+        # Veritabanında öğrenciyi numarasına göre ara
+        ogrenci = db.query(Ogrenci).filter(Ogrenci.ogrenci_no == clean_no).first()
+
+        if ogrenci and ogrenci.sifre == clean_pass:
+            # login_student fonksiyonuna öğrenci no ve adını gönderiyoruz
+            login_student(clean_no, name=ogrenci.ad_soyad) 
+            st.success(f"Hoş geldin, {ogrenci.ad_soyad}!")
+            st.switch_page(STUDENT_PANEL_PAGE)
+        else:
+            st.error("Öğrenci numarası veya şifre hatalı!")
+            
+    except Exception as e:
+        st.error(f"Sistem hatası: {e}")
+    finally:
+        db.close()
 
 def render_login_card() -> None:
     st.markdown(
@@ -67,7 +85,7 @@ def render_form() -> None:
         if error_message:
             st.error(error_message)
         else:
-            handle_login(student_number)
+            handle_login(student_number, password)
 
     st.markdown('<div class="back-btn">', unsafe_allow_html=True)
     if st.button("← Geri Dön", use_container_width=True):
