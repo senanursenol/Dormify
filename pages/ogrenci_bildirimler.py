@@ -4,17 +4,16 @@ from typing import Dict
 from core.auth import get_student_no, redirect_if_not_logged_in
 from core.constants import (
     ROLE_STUDENT,
-    STATUS_PENDING,
     STUDENT_LOGIN_PAGE,
     STUDENT_PANEL_PAGE,
 )
 from core.styles import load_student_notifications_page_styles
 
 from services.api_service import (
-    get_student_faults,   # API'den öğrenciye özel arızaları çeken fonksiyon
-    update_fault_api      # İptal işlemi için API'yi kullanacağız
+    get_student_faults,
+    update_fault_api
 )
-from services.fault_service import get_status_label, get_status_counts
+from services.fault_service import get_status_counts
 
 
 def render_back_button() -> None:
@@ -77,88 +76,102 @@ def render_empty_state() -> None:
     )
 
 
-def render_fault_card(index: int, fault: Dict) -> None:
-    # 1. Veritabanından gelen ham Türkçe kelimeyi alıyoruz
+def get_status_info(fault: Dict) -> tuple[str, str, str]:
     db_durum = fault.get("durum", "Beklemede")
 
-    # 2. CSS renklerinin (yeşil/kırmızı) çalışması için İngilizce sistem kodlarına çeviriyoruz
     if db_durum == "Çözüldü":
-        status = "solved"
-        status_label = "Çözüldü"
+        return "solved", "Çözüldü", "✅"
     elif db_durum == "İptal Edildi":
-        status = "cancelled"
-        status_label = "İptal Edildi"
+        return "cancelled", "İptal Edildi", "❌"
     else:
-        status = "pending"
-        status_label = "Beklemede"
+        return "pending", "Beklemede", "⏳"
 
-    # Kartın rengi (status) ve ekranda yazacak yazı (status_label) artık doğru!
-    st.markdown(f'<div class="notice-card {status}">', unsafe_allow_html=True)
 
-    col_left, col_right = st.columns([4, 1.2])
+def cancel_fault(fault_id: int) -> None:
+    res = update_fault_api(fault_id, "İptal Edildi")
+    if res.get("status") == "success":
+        st.rerun()
+    else:
+        st.error("Bildirim iptal edilemedi.")
 
-    with col_left:
-        st.markdown(
-            f'<div class="notice-title">🚪 {fault.get("oda_no", "-")} No\'lu Oda</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f'<div class="notice-meta">📅 {fault.get("tarih", "-")} &nbsp;&nbsp; 👤 {fault.get("ogrenci_no", "-")}</div>',
-            unsafe_allow_html=True,
-        )
 
-    with col_right:
-        st.markdown(
-            f'<div class="badge {status}">{status_label}</div>',
-            unsafe_allow_html=True,
-        )
+def delete_fault(fault_id: int) -> None:
+    # Backend "Silindi" durumunu desteklemelidir.
+    res = update_fault_api(fault_id, "Silindi")
+    if res.get("status") == "success":
+        st.rerun()
+    else:
+        st.error("Bildirim silinemedi. Backend'de silme desteği olmayabilir.")
 
-    aciklama_metni = fault.get("aciklama") or fault.get("detay") or "Açıklama belirtilmedi."
-    st.markdown(
-        f'<div class="notice-desc">{aciklama_metni}</div>',
-        unsafe_allow_html=True,
-    )
 
-    # İptal butonu sadece "Beklemede" (pending) durumundayken görünsün
-    if status == "pending" and fault.get("id"):
-        st.markdown('<div class="cancel-btn">', unsafe_allow_html=True)
-        if st.button("✖ İptal", key=f"iptal_{index}", use_container_width=False):
-            from services.api_service import update_fault_api
-            res = update_fault_api(fault["id"], "İptal Edildi")
-            if res.get("status") == "success":
-                st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+def render_fault_card(index: int, fault: Dict) -> None:
+    status, status_label, status_icon = get_status_info(fault)
 
-    st.markdown("</div>", unsafe_allow_html=True)   
+    oda_no = fault.get("oda_no", "-")
+    tarih = fault.get("tarih", "-")
+    ogrenci_no = fault.get("ogrenci_no", "-")
+    aciklama = fault.get("aciklama") or fault.get("detay") or "Açıklama belirtilmedi."
+
+    with st.container(border=True):
+        # ÜST SATIR
+        left, right = st.columns([5, 1])
+
+        with left:
+            st.markdown(f"#### 🚪 {oda_no} No'lu Oda")
+            st.caption(f"📅 {tarih}   |   👤 {ogrenci_no}")
+
+        with right:
+            if fault.get("id"):
+                if st.button("✕", key=f"sil_{index}", use_container_width=True):
+                    delete_fault(fault["id"])
+
+        # AÇIKLAMA
+        st.write(aciklama)
+
+        # ALT SATIR
+        left2, right2 = st.columns([4, 2])
+
+        with left2:
+            st.empty()
+
+        with right2:
+            badge_col, cancel_col = st.columns([2, 2])
+
+            with badge_col:
+                st.markdown(
+                    f'<div class="native-badge {status}">{status_icon} {status_label}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            with cancel_col:
+                if status == "pending" and fault.get("id"):
+                    if st.button("İptal", key=f"iptal_{index}", use_container_width=True):
+                        cancel_fault(fault["id"])
+
+        st.markdown('<div class="card-gap"></div>', unsafe_allow_html=True)
 
 
 def render_fault_list(faults: list[Dict]) -> None:
-    st.markdown('<div class="list-container">', unsafe_allow_html=True)
-
     if not faults:
         render_empty_state()
     else:
         for index, fault in enumerate(faults):
             render_fault_card(index, fault)
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
 
 def main() -> None:
     redirect_if_not_logged_in(ROLE_STUDENT, STUDENT_LOGIN_PAGE)
-    # init_fault_state() -> Artık API kullandığımız için buna gerek kalmayabilir
     load_student_notifications_page_styles()
 
     student_number = get_student_no()
-    
-    # ARTIK VERİYİ DOĞRUDAN API'DEN ÇEKİYORUZ
-    faults = get_student_faults(student_number) 
-    
-    # İstatistikleri hesapla
+    faults = get_student_faults(student_number)
+
     pending_count, solved_count, total_count = get_status_counts(faults)
 
     render_back_button()
     render_stats(pending_count, solved_count, total_count)
     render_fault_list(faults)
 
-main()
+
+if __name__ == "__main__":
+    main()

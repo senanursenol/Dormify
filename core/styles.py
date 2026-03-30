@@ -27,12 +27,10 @@ def load_base_styles() -> None:
             transform: translateY(-1px);
         }
 
-        /* Sol üstteki sidebar açma butonunu gizle */
         [data-testid="collapsedControl"] {
             display: none;
         }
 
-        /* Otomatik sayfa listesini gizle */
         [data-testid="stSidebar"] {
             display: none;
         }
@@ -76,6 +74,7 @@ def load_soft_background() -> None:
         }
         """
     )
+
 
 def load_main_card_styles() -> None:
     _inject(
@@ -163,6 +162,7 @@ def load_main_card_styles() -> None:
         }
         """
     )
+
 
 def load_login_page_styles() -> None:
     _inject(
@@ -572,7 +572,7 @@ def load_student_notifications_styles() -> None:
             width: auto;
             min-width: 220px;
             padding: 0 24px;
-            height: 52px;
+            height: 48px;
             border-radius: 14px;
             background: rgba(255,255,255,0.95);
             color: #374151;
@@ -614,19 +614,14 @@ def load_student_notifications_styles() -> None:
             font-weight: 600;
         }
 
-        .list-container {
-            background: rgba(255,255,255,0.95);
-            border-radius: 24px;
-            padding: 2rem;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
-            border: 1px solid rgba(255,255,255,0.6);
-            margin-top: 1rem;
-        }
-
         .empty-state {
             text-align: center;
             padding: 3rem 1rem;
             color: #64748b;
+            background: rgba(255,255,255,0.95);
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            margin-top: 1rem;
         }
 
         .empty-icon {
@@ -635,82 +630,80 @@ def load_student_notifications_styles() -> None:
             opacity: 0.5;
         }
 
-        .notice-card {
-            background: white;
-            border-radius: 20px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.06);
-            border-left: 5px solid #e5e7eb;
-        }
-
-        .notice-card.pending {
-            border-left-color: #f59e0b;
-        }
-
-        .notice-card.solved {
-            border-left-color: #10b981;
-            opacity: 0.92;
-        }
-
-        .notice-card.cancelled {
-            border-left-color: #ef4444;
-            opacity: 0.88;
-        }
-
-        .notice-title {
-            font-size: 1.08rem;
-            font-weight: 700;
-            color: #1e293b;
-        }
-
-        .notice-meta {
-            color: #64748b;
-            font-size: 0.92rem;
-            margin-top: 0.45rem;
-            margin-bottom: 0.9rem;
-        }
-
-        .notice-desc {
-            color: #374151;
-            line-height: 1.7;
-            font-size: 0.98rem;
-            margin-bottom: 1rem;
-        }
-
-        .badge {
+        .native-badge {
             display: inline-block;
-            padding: 0.45rem 0.9rem;
+            width: 100%;
+            text-align: center;
+            padding: 0.4rem 0.65rem;
             border-radius: 999px;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-weight: 700;
-            margin-top: 0.3rem;
+            white-space: nowrap;
+            margin-top: 0.1rem;
         }
 
-        .badge.pending {
+        .native-badge.pending {
             background: #fef3c7;
             color: #d97706;
         }
 
-        .badge.solved {
+        .native-badge.solved {
             background: #d1fae5;
             color: #047857;
         }
 
-        .badge.cancelled {
+        .native-badge.cancelled {
             background: #fee2e2;
             color: #dc2626;
         }
 
-        .cancel-btn .stButton > button {
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            height: 40px;
-            font-size: 0.85rem;
+        .card-gap {
+            height: 0.25rem;
+        }
+
+        .stContainer {
+            margin-top: 1rem;
+        }
+
+        .stButton > button {
+            border-radius: 12px;
             font-weight: 700;
-            width: auto;
+        }
+
+        /* X butonu */
+        div[data-testid="stColumn"]:nth-child(2) .stButton > button {
+            width: 34px !important;
+            min-width: 34px !important;
+            height: 34px !important;
+            min-height: 34px !important;
+            padding: 0 !important;
+            border-radius: 8px !important;
+            background: #ef4444 !important;
+            color: white !important;
+            border: none !important;
+            font-size: 0.9rem !important;
+            font-weight: 800 !important;
+            box-shadow: none !important;
+        }
+
+        div[data-testid="stColumn"]:nth-child(2) .stButton > button:hover {
+            background: #dc2626 !important;
+            transform: none !important;
+        }
+
+        /* İptal butonu */
+        div[data-testid="stColumn"] .stButton > button {
+            min-height: 34px !important;
+            height: 34px !important;
+            font-size: 0.82rem !important;
+            border-radius: 10px !important;
+        }
+
+        /* İptal için yazıya göre genişlik */
+        div[data-testid="stColumn"]:last-child .stButton > button {
+            width: auto !important;
+            min-width: 72px !important;
+            padding: 0.2rem 0.8rem !important;
         }
         """
     )
