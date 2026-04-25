@@ -32,15 +32,13 @@ def sync_data_from_api() -> None:
         st.session_state[SESSION_MEAL_MENU] = st.session_state.get(SESSION_MEAL_MENU, "Menü yüklenemedi.")
 
 
-# ---------------- HEADER (SADECE BURASI DÜZELTİLDİ) ----------------
+# ---------------- HEADER ----------------
 def render_header() -> None:
     col_left, col_mid, col_right = st.columns([1, 6, 1])
 
-    # LOGO SOL
     with col_left:
         render_logo(center=False, width=280)
 
-    # GİRİŞ SAĞ
     with col_right:
         st.write("##")
         if st.button("Sisteme Giriş Yap →", key="nav_btn"):
@@ -88,32 +86,48 @@ def render_announcements() -> None:
         )
 
 
+# ----------- MODAL -----------
+@st.dialog("📅 Aylık Yemek Menüsü", width="large")
+def render_monthly_menu_modal() -> None:
+    st.markdown(
+        """
+        <div style="
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 20px 12px;
+            color:#475569;
+            font-size:16px;
+            text-align:center;
+        ">
+            Aylık yemek menüsü personel tarafından eklendiğinde burada görüntülenecektir.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_menu_card() -> None:
     st.markdown('<h3 style="color:#1e293b; margin-bottom:20px;">🍴 Bugün Ne Var?</h3>', unsafe_allow_html=True)
 
-    menu_str = st.session_state.get(SESSION_MEAL_MENU, "")
-    menu_items = menu_str.split(", ") if menu_str else []
-
-    icons = ["🍲", "🍗", "🍚", "🍎"]
-
-    pills_html = "".join(
-        [
-            f'<div class="menu-item-pill">{icons[i] if i < len(icons) else "🍽️"} {item.strip()}</div>'
-            for i, item in enumerate(menu_items)
-        ]
-    )
-
     st.markdown(
-        f"""
+        """
         <div class="modern-menu-card">
-            <div style="display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-top:15px;">
-                {pills_html if menu_items else "Menü bilgisi yok."}
+            <div style="
+                text-align:center;
+                color:#475569;
+                font-size:15px;
+                padding:20px 12px;
+            ">
+                Günün yemeği aylık yemek menüsünden otomatik olarak gösterilecektir.
             </div>
             <div class="afiyet-text">AFİYET OLSUN!</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+    if st.button("📅 Aylık Menü", use_container_width=True, key="btn_aylik_menu"):
+        render_monthly_menu_modal()
 
     if st.button("🔧 Arıza Bildirimi", use_container_width=True, key="btn_ariza"):
         st.info("Lütfen önce giriş yapın.")
