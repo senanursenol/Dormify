@@ -122,3 +122,18 @@ def delete_fault_api(fault_id: int):
         return response.json()
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+def create_student_api(username: str, password: str, full_name: str, room_no: str):
+    """Öğrenci ekleme isteğini backend API'ye gönderir."""
+    payload = {
+        "username": username,
+        "password": password,
+        "full_name": full_name,
+        "room_no": room_no
+    }
+
+    try:
+        response = requests.post(f"{BASE_URL}/students/create", json=payload, timeout=5)
+        return response.json()
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
