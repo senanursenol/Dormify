@@ -31,11 +31,20 @@ def get_db():
         db.close()
 
 # --- GEÇİCİ VERİ DEPOLARI (Şimdilik Duyuru ve Yemek için) ---
+MONTHS = [
+    "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+]
+
+def create_empty_monthly_menu() -> dict:
+    return {month: {str(day): "" for day in range(1, 36)} for month in MONTHS}
+
 fake_announcements_db = [
     {"baslik": "Teknik Bakım", "icerik": "İnternet çalışmaları nedeniyle kesinti yaşanabilir.", "etiket": "ACİL", "renk": "#ef4444"},
     {"baslik": "Bahar Şenliği", "icerik": "Kayıtlar lobi alanında devam etmektedir.", "etiket": "YENİ", "renk": "#3b82f6"}
 ]
 fake_meal_db = {"menu": "Yayla Çorbası, Tavuk Sote, Pilav, Meyve"}
+fake_monthly_menu_db = create_empty_monthly_menu()
 
 # ---------------------------------------------------------
 # 1. DUYURU İŞLEMLERİ
@@ -60,6 +69,41 @@ def get_menu():
 def update_meal(menu_text: str):
     fake_meal_db["menu"] = menu_text
     return {"status": "success", "message": "Menü güncellendi."}
+
+class MonthlyMenu(BaseModel):
+    menu: dict
+
+@app.get("/monthly-meal-menu", tags=["Yemekhane"])
+def get_monthly_menu():
+    return fake_monthly_menu_db
+
+@app.put("/monthly-meal-menu", tags=["Yemekhane"])
+def update_monthly_menu(menu_data: MonthlyMenu):
+    fake_monthly_menu_db.clear()
+    fake_monthly_menu_db.update(menu_data.menu)
+    return {"status": "success", "message": "Aylık yemek menüsü güncellendi."}
+
+class StudentCreate(BaseModel):
+    username: str
+    password: str
+    full_name: str
+    room_no: str
+
+@app.post("/students/create", tags=["Öğrenciler"])
+def create_student(student: StudentCreate, db: Session = Depends(get_db)):
+    existing = db.query(models.Ogrenci).filter(models.Ogrenci.ogrenci_no == student.username).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Bu öğrenci numarası zaten kayıtlı.")
+
+    yeni_ogrenci = models.Ogrenci(
+        ogrenci_no=student.username,
+        ad_soyad=student.full_name,
+        oda_no=student.room_no,
+        sifre=student.password,
+    )
+    db.add(yeni_ogrenci)
+    db.commit()
+    return {"status": "success", "message": "Öğrenci başarıyla kaydedildi."}
 
 # ---------------------------------------------------------
 # 3. ARIZA İŞLEMLERİ (VERİTABANI BAĞLANTILI)

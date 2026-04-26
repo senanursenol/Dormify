@@ -3,11 +3,13 @@ import streamlit as st
 from core.auth import redirect_if_not_logged_in
 from core.constants import ROLE_STAFF, STAFF_LOGIN_PAGE
 from core.styles import load_student_panel_page_styles
+from services.api_service import get_monthly_meal_menu, save_monthly_meal_menu
 
 
 MONTHLY_MENU_SESSION_KEY = "monthly_food_calendar"
 MONTHLY_DAY_LABELS_KEY = "monthly_food_day_labels"
 MONTHLY_SELECTED_MONTH_KEY = "monthly_selected_month"
+MONTHLY_MENU_LOADED_KEY = "monthly_menu_loaded"
 
 MONTHS = [
     "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
@@ -26,15 +28,28 @@ def init_monthly_menu_state() -> None:
 
     if MONTHLY_MENU_SESSION_KEY not in st.session_state:
         st.session_state[MONTHLY_MENU_SESSION_KEY] = {
-            month: {day: "" for day in range(1, 36)}
+            month: {str(day): "" for day in range(1, 36)}
             for month in MONTHS
         }
 
     if MONTHLY_DAY_LABELS_KEY not in st.session_state:
         st.session_state[MONTHLY_DAY_LABELS_KEY] = {
-            month: {day: str(day) for day in range(1, 36)}
+            month: {str(day): str(day) for day in range(1, 36)}
             for month in MONTHS
         }
+
+    if MONTHLY_MENU_LOADED_KEY not in st.session_state:
+        st.session_state[MONTHLY_MENU_LOADED_KEY] = False
+
+
+def sync_monthly_menu_from_api() -> None:
+    if st.session_state.get(MONTHLY_MENU_LOADED_KEY):
+        return
+
+    menu_data = get_monthly_meal_menu()
+    if isinstance(menu_data, dict) and menu_data:
+        st.session_state[MONTHLY_MENU_SESSION_KEY] = menu_data
+    st.session_state[MONTHLY_MENU_LOADED_KEY] = True
 
 
 def render_month_selector() -> str:
@@ -160,16 +175,17 @@ def render_monthly_food_calendar() -> None:
         for col in cols:
             with col:
                 with st.container(border=True):
-                    day_labels[box_number] = st.text_input(
+                    key = str(box_number)
+                    day_labels[key] = st.text_input(
                         "",
-                        value=day_labels.get(box_number, str(box_number)),
+                        value=day_labels.get(key, key),
                         key=f"day_label_{selected_month}_{box_number}",
                         label_visibility="collapsed",
                     )
 
-                    monthly_menu[box_number] = st.text_area(
+                    monthly_menu[key] = st.text_area(
                         "",
-                        value=monthly_menu.get(box_number, ""),
+                        value=monthly_menu.get(key, ""),
                         placeholder="Menü...",
                         key=f"food_day_{selected_month}_{box_number}",
                         label_visibility="collapsed",
@@ -183,7 +199,11 @@ def render_monthly_food_calendar() -> None:
     st.markdown("<br>", unsafe_allow_html=True)
 
     if st.button("💾 Aylık Menüyü Kaydet", type="primary", use_container_width=True):
-        st.success(f"{selected_month} ayı yemek menüsü kaydedildi.")
+        res = save_monthly_meal_menu(st.session_state[MONTHLY_MENU_SESSION_KEY])
+        if res.get("status") == "success":
+            st.success(f"{selected_month} ayı yemek menüsü kaydedildi.")
+        else:
+            st.error(res.get("message", "Aylık yemek menüsü kaydedilirken bir hata oluştu."))
 
 
 def main() -> None:
@@ -191,6 +211,7 @@ def main() -> None:
 
     load_student_panel_page_styles()
     init_monthly_menu_state()
+    sync_monthly_menu_from_api()
 
     render_back()
     render_monthly_food_calendar()

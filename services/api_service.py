@@ -60,6 +60,31 @@ def update_meal_api(new_menu: str):
         return {"status": "error", "message": str(e)}
 
 # ---------------------------------------------------------
+# 2. AYLIK YEMEK MENÜSÜ İŞLEMLERİ
+
+
+def get_monthly_meal_menu():
+    try:
+        response = requests.get(f"{BASE_URL}/monthly-meal-menu", timeout=5)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"HATA (Aylık Menü Çekme): {e}")
+        return {}
+
+
+def save_monthly_meal_menu(menu_data: dict):
+    try:
+        response = requests.put(
+            f"{BASE_URL}/monthly-meal-menu",
+            json={"menu": menu_data},
+            timeout=5,
+        )
+        return response.json()
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# ---------------------------------------------------------
 # 3. ARIZA BİLDİRİM İŞLEMLERİ (POST, GET & PUT)
 # ---------------------------------------------------------
 

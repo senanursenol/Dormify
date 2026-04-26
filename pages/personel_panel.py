@@ -16,7 +16,8 @@ from services.api_service import (
     get_all_faults,
     update_fault_api,
     post_announcement,
-    update_meal_api
+    update_meal_api,
+    create_student_api,
 )
 
 # İstatistikleri hesaplayan fonksiyonu dahil ediyoruz
@@ -103,9 +104,9 @@ def render_menu_cards() -> None:
             unsafe_allow_html=True
         )
 
-        # BURASI GÜNCELLENDİ
         if st.button("Menüyü Güncelle", use_container_width=True):
-            st.switch_page("pages/yemek_listesi.py")
+            st.session_state[SESSION_ADMIN_SUB_PAGE] = "yemek"
+            st.rerun()
 
     with row2_col1:
         st.markdown(
@@ -144,11 +145,20 @@ def render_student_add_page() -> None:
         password = st.text_input("Şifre", type="password")
 
         if st.button("Öğrenciyi Kaydet", type="primary", use_container_width=True):
-            if not all([full_name, username, room_no, password]):
+            if not all([full_name.strip(), username.strip(), room_no.strip(), password.strip()]):
                 st.warning("Tüm alanları doldurmanız gerekmektedir.")
             else:
-                st.success(f"{full_name} sisteme başarıyla eklendi!")
-                st.balloons()
+                res = create_student_api(
+                    username.strip(),
+                    password.strip(),
+                    full_name.strip(),
+                    room_no.strip(),
+                )
+                if res.get("status") == "success":
+                    st.success(f"{full_name.strip()} sisteme başarıyla eklendi!")
+                    st.balloons()
+                else:
+                    st.error(res.get("message", "Öğrenci kaydı sırasında bir hata oluştu."))
 
 
 def render_stats(pending_count: int, solved_count: int, total_count: int) -> None:

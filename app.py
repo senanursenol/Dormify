@@ -89,8 +89,9 @@ def render_announcements() -> None:
 # ----------- MODAL -----------
 @st.dialog("📅 Aylık Yemek Menüsü", width="large")
 def render_monthly_menu_modal() -> None:
+    current_menu = st.session_state.get(SESSION_MEAL_MENU, "Aylık yemek menüsü henüz yüklenmedi.")
     st.markdown(
-        """
+        f"""
         <div style="
             max-height: 500px;
             overflow-y: auto;
@@ -99,7 +100,7 @@ def render_monthly_menu_modal() -> None:
             font-size:16px;
             text-align:center;
         ">
-            Aylık yemek menüsü personel tarafından eklendiğinde burada görüntülenecektir.
+            {current_menu}
         </div>
         """,
         unsafe_allow_html=True,
@@ -109,8 +110,10 @@ def render_monthly_menu_modal() -> None:
 def render_menu_card() -> None:
     st.markdown('<h3 style="color:#1e293b; margin-bottom:20px;">🍴 Bugün Ne Var?</h3>', unsafe_allow_html=True)
 
+    current_menu = st.session_state.get(SESSION_MEAL_MENU, "Menü bilgisi yüklenemedi.")
+
     st.markdown(
-        """
+        f"""
         <div class="modern-menu-card">
             <div style="
                 text-align:center;
@@ -118,7 +121,7 @@ def render_menu_card() -> None:
                 font-size:15px;
                 padding:20px 12px;
             ">
-                Günün yemeği aylık yemek menüsünden otomatik olarak gösterilecektir.
+                {current_menu}
             </div>
             <div class="afiyet-text">AFİYET OLSUN!</div>
         </div>
