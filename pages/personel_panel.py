@@ -18,6 +18,7 @@ from services.api_service import (
     post_announcement,
     update_meal_api,
     create_student_api,
+    delete_announcement_api,
 )
 
 # İstatistikleri hesaplayan fonksiyonu dahil ediyoruz
@@ -100,13 +101,13 @@ def render_menu_cards() -> None:
 
     with row1_col2:
         st.markdown(
-            '<div class="info-card"><h3>🍴 Yemek Menüsü</h3><p>Günlük yemek listesini güncelleyerek öğrenci paneline yansıtın.</p></div>',
+            '<div class="info-card"><h3>🍴 Yemek Menüsü</h3><p>Aylık yemek listesini güncelleyerek öğrenci paneline yansıtın.</p></div>',
             unsafe_allow_html=True
         )
 
         if st.button("Menüyü Güncelle", use_container_width=True):
-            st.session_state[SESSION_ADMIN_SUB_PAGE] = "yemek"
-            st.rerun()
+            # Doğrudan takvim sayfasına yönlendiriyoruz:
+            st.switch_page("pages/yemek_listesi.py")
 
     with row2_col1:
         st.markdown(
@@ -173,36 +174,53 @@ def render_stats(pending_count: int, solved_count: int, total_count: int) -> Non
         st.markdown(f'<div style="{box_style}"><div style="font-size: 24px;">📋</div><div style="font-size: 28px; font-weight: 800; color: #0f172a;">{total_count}</div><div style="color: #64748b; font-weight: 600;">Toplam</div></div>', unsafe_allow_html=True)
 
 
+# ---------------- DUYURU YÖNETİMİ ----------------
 def render_announcement_page() -> None:
     render_back()
-    st.subheader("Yeni Duyuru Yayınla")
-
-    title = st.text_input("Duyuru Başlığı", placeholder="Örn: Teknik Bakım")
-    content = st.text_area("Duyuru İçeriği", placeholder="Duyuru detaylarını buraya yazın...")
-
-    if st.button("Sistemde Yayınla", type="primary", use_container_width=True):
-        if not title.strip() or not content.strip():
-            st.warning("Lütfen başlık ve içerik alanlarını doldurun.")
+    st.title("📢 Duyuru Yönetimi")
+    
+    col1, col2 = st.columns([1, 1], gap="large")
+    
+    # SOL TARAF: DUYURU EKLEME FORMU
+    with col1:
+        st.subheader("Yeni Duyuru Ekle")
+        with st.container(border=True):
+            yeni_baslik = st.text_input("Duyuru Başlığı", placeholder="Örn: Teknik Bakım")
+            yeni_icerik = st.text_area("Duyuru İçeriği", height=150, placeholder="Duyuru detaylarını buraya yazın...")
+            
+            if st.button("🚀 Duyuruyu Yayınla", type="primary", use_container_width=True):
+                if yeni_baslik.strip() and yeni_icerik.strip():
+                    res = post_announcement(yeni_baslik.strip(), yeni_icerik.strip())
+                    if res.get("status") == "success":
+                        st.success("Duyuru başarıyla yayınlandı!")
+                        st.rerun() # Sayfayı yenile ki sağ tarafta hemen çıksın
+                    else:
+                        st.error("Bir hata oluştu.")
+                else:
+                    st.warning("Lütfen başlık ve içerik giriniz.")
+                    
+    # SAĞ TARAF: AKTİF DUYURULAR VE SİLME BUTONLARI
+    with col2:
+        st.subheader("Mevcut Duyurular")
+        mevcut_duyurular = get_announcements()
+        
+        if not mevcut_duyurular:
+            st.info("Sistemde aktif bir duyuru bulunmuyor.")
         else:
-            res = post_announcement(title, content)
-            if res.get("status") == "success":
-                st.success("Duyuru tüm öğrencilere başarıyla iletildi!")
-                st.balloons()
+            # Scroll eklenebilir ama şu anki yapı da gayet şık duracaktır
+            for duyuru in mevcut_duyurular:
+                with st.container(border=True):
+                    st.markdown(f"**{duyuru.get('baslik')}**")
+                    st.caption(f"Tarih: {duyuru.get('tarih')}")
+                    st.write(duyuru.get('icerik'))
+                    
+                    # Sil butonuna basıldığında
+                    if st.button("🗑️ Sil", key=f"del_{duyuru.get('id')}", type="secondary"):
+                        delete_announcement_api(duyuru.get('id'))
+                        st.rerun() # Silince sayfayı yenile
 
 
-def render_menu_page() -> None:
-    render_back()
-    st.subheader("Günlük Yemek Listesi")
-
-    current_menu = get_meal_menu()
-    menu_value = st.text_area("Menü Detayları", value=current_menu)
-
-    if st.button("Tüm Sistemde Güncelle", type="primary", use_container_width=True):
-        res = update_meal_api(menu_value)
-        if res.get("status") == "success":
-            st.success("Yemek menüsü başarıyla güncellendi!")
-
-
+# ---------------- ARIZA YÖNETİMİ ----------------
 def render_fault_page() -> None:
     render_back()
     st.subheader("🛠️ Gelen Arıza Bildirimleri")
@@ -260,8 +278,6 @@ def main() -> None:
 
     if page == "duyuru":
         render_announcement_page()
-    elif page == "yemek":
-        render_menu_page()
     elif page == "ariza":
         render_fault_page()
     elif page == "ogrenci_ekle":

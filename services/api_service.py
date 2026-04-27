@@ -73,30 +73,25 @@ def get_monthly_meal_menu():
         return {}
 
 
-def save_monthly_meal_menu(menu_data: dict):
+def save_monthly_meal_menu(payload: dict):
+    """Aylık menü paketini (yıl, ay ve günler) FastAPI'ye fırlatır."""
     try:
-        response = requests.put(
-            f"{BASE_URL}/monthly-meal-menu",
-            json={"menu": menu_data},
-            timeout=5,
-        )
+        response = requests.post(f"{BASE_URL}/save-monthly-menu", json=payload, timeout=5)
         return response.json()
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
 # ---------------------------------------------------------
 # 3. ARIZA BİLDİRİM İŞLEMLERİ (POST, GET & PUT)
 # ---------------------------------------------------------
 
 # services/api_service.py içindeki ilgili fonksiyonu bununla değiştir:
-
-def send_fault_report(baslik: str, detay: str, oda_no: str, ogrenci_no: str):
-    """Öğrencinin oluşturduğu arıza bildirimini API'ye kaydeder."""
+def send_fault_report(baslik: str, detay: str, ogrenci_no: str):
+    """Öğrencinin oluşturduğu arıza bildirimini API'ye kaydeder. Oda no otomatik bulunur."""
     payload = {
         "baslik": baslik,
         "detay": detay,
-        "oda_no": oda_no,
-        "ogrenci_no": ogrenci_no  # ARTIK ÖĞRENCİ NUMARASI DA GİDİYOR!
+        "ogrenci_no": ogrenci_no 
+        # oda_no kısmını buradan tamamen sildik!
     }
     try:
         response = requests.post(f"{BASE_URL}/report-fault", json=payload, timeout=5)
@@ -105,6 +100,7 @@ def send_fault_report(baslik: str, detay: str, oda_no: str, ogrenci_no: str):
         return {"status": "error", "message": f"Sunucu hatası: {response.status_code}"}
     except Exception as e:
         return {"status": "error", "message": f"Bağlantı hatası: {str(e)}"}
+
 def get_all_faults():
     """Sistemdeki tüm arıza kayıtlarını personel paneli için çeker."""
     try:
@@ -140,6 +136,14 @@ def update_fault_api(fault_id: int, status: str):
     
     # services/api_service.py dosyasının en altına ekle:
 
+def delete_announcement_api(duyuru_id: int):
+    """Personelin sildiği duyuruyu API'ye iletir."""
+    try:
+        response = requests.delete(f"{BASE_URL}/announcements/{duyuru_id}", timeout=5)
+        return response.json()
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 def delete_fault_api(fault_id: int):
     """Personel panelinden gelen silme isteğini API'ye iletir."""
     try:
@@ -162,3 +166,4 @@ def create_student_api(username: str, password: str, full_name: str, room_no: st
         return response.json()
     except Exception as e:
         return {"status": "error", "message": str(e)}
+    

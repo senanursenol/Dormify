@@ -1,6 +1,8 @@
 import requests
 import streamlit as st
+import calendar
 from streamlit_lottie import st_lottie
+from datetime import datetime
 
 from core.constants import (
     LOGIN_SELECTION_PAGE,
@@ -10,7 +12,8 @@ from core.constants import (
 from core.styles import load_landing_styles
 from core.ui import render_logo
 
-from services.api_service import get_announcements, get_meal_menu
+# Yeni aylık menü fonksiyonunu (get_monthly_meal_menu) da içeri aktarıyoruz
+from services.api_service import get_announcements, get_meal_menu, get_monthly_meal_menu
 
 
 def load_lottieurl(url: str):
@@ -85,28 +88,69 @@ def render_announcements() -> None:
             unsafe_allow_html=True,
         )
 
-
-# ----------- MODAL -----------
-@st.dialog("📅 Aylık Yemek Menüsü", width="large")
+# ----------- AYLIK MENÜ MODALI (POP-UP) -----------
+@st.dialog("📅 Bu Ayın Yemek Takvimi", width="large")
 def render_monthly_menu_modal() -> None:
-    current_menu = st.session_state.get(SESSION_MEAL_MENU, "Aylık yemek menüsü henüz yüklenmedi.")
-    st.markdown(
-        f"""
-        <div style="
-            max-height: 500px;
-            overflow-y: auto;
-            padding: 20px 12px;
-            color:#475569;
-            font-size:16px;
-            text-align:center;
-        ">
-            {current_menu}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    now = datetime.now()
+    current_year = now.year
+    current_month = now.month
+    
+    MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+    current_month_name = MONTHS[current_month - 1]
 
+    with st.spinner("Menü yükleniyor..."):
+        all_data = get_monthly_meal_menu()
+        month_data = all_data.get(current_month_name, {})
 
+    if not month_data:
+        st.info("Bu ay için henüz menü girişi yapılmamıştır.")
+        return
+
+    # Takvim tablosu için CSS stilleri
+    st.markdown("""
+        <style>
+        .cal-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 10px; }
+        .cal-th { background-color: #f8fafc; color: #1e293b; padding: 10px; text-align: center; border: 1px solid #cbd5e1; font-weight: 800; font-size: 14px; }
+        .cal-td { border: 1px solid #cbd5e1; vertical-align: top; height: 110px; padding: 8px; background-color: white; overflow: hidden; }
+        .cal-td-empty { background-color: #f1f5f9; border: 1px solid #cbd5e1; }
+        .cal-today { background-color: #eff6ff; border: 2px solid #3b82f6; box-shadow: inset 0 0 5px rgba(59,130,246,0.2); }
+        .day-num { font-weight: 900; color: #3b82f6; font-size: 14px; margin-bottom: 5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; }
+        .meal-desc { font-size: 11px; color: #475569; line-height: 1.4; word-wrap: break-word; }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # Python ile ayın takvim matrisini oluşturuyoruz
+    cal_matrix = calendar.monthcalendar(current_year, current_month)
+    weekdays = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
+
+    # HTML tablosunu başlat (Hepsi tek satırda birleştirilecek)
+    html = '<table class="cal-table"><tr>'
+    
+    for w in weekdays:
+        html += f"<th class='cal-th'>{w}</th>"
+    html += "</tr>"
+
+    for week in cal_matrix:
+        html += "<tr>"
+        for day in week:
+            if day == 0:
+                html += "<td class='cal-td-empty'></td>"
+            else:
+                meal_text = month_data.get(str(day), "").strip()
+                # Eğer personel Enter'a basıp alt satıra geçmişse, bunu HTML'e uyarlıyoruz
+                meal_text = meal_text.replace('\n', '<br>')
+                
+                is_today = (day == now.day)
+                td_class = "cal-td cal-today" if is_today else "cal-td"
+                star = "⭐ " if is_today else ""
+                
+                # Markdown kafası karışmasın diye boşluk bırakmadan tek satırda fırlatıyoruz!
+                html += f"<td class='{td_class}'><div class='day-num'>{star}{day}</div><div class='meal-desc'>{meal_text}</div></td>"
+        html += "</tr>"
+    html += "</table>"
+
+    st.markdown(html, unsafe_allow_html=True)
+        
 def render_menu_card() -> None:
     st.markdown('<h3 style="color:#1e293b; margin-bottom:20px;">🍴 Bugün Ne Var?</h3>', unsafe_allow_html=True)
 

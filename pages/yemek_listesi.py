@@ -1,5 +1,6 @@
 import streamlit as st
-
+import calendar
+from datetime import datetime
 from core.auth import redirect_if_not_logged_in
 from core.constants import ROLE_STAFF, STAFF_LOGIN_PAGE
 from core.styles import load_student_panel_page_styles
@@ -71,88 +72,15 @@ def render_month_selector() -> str:
 
 def render_monthly_food_calendar() -> None:
     selected_month = render_month_selector()
+    
+    # Gerçek takvim mantığı için mevcut yılı alıyoruz
+    current_year = datetime.now().year
+    month_index = MONTHS.index(selected_month) + 1 # Seçilen ayın numarasını (1-12) buluruz
 
-    st.markdown(
-        """
-        <style>
-        .weekday-header {
-            background: #dbeafe;
-            color: #1e293b;
-            font-weight: 900;
-            text-align: center;
-            border-radius: 8px;
-            padding: 5px;
-            margin-bottom: 5px;
-            border: 1px solid #bfdbfe;
-            font-size: 11px;
-        }
-
-        div[data-testid="stVerticalBlockBorderWrapper"] {
-            border: 1px solid #cbd5f5 !important;
-            border-radius: 10px !important;
-            box-shadow: 0 2px 5px rgba(15, 23, 42, 0.04) !important;
-            background: #f8fafc !important;
-            padding: 6px !important;
-            min-height: 112px !important;
-        }
-
-        div[data-testid="stTextInput"] {
-            width: 34px !important;
-            min-width: 34px !important;
-            max-width: 34px !important;
-            margin: 0 0 4px 0 !important;
-            padding: 0 !important;
-        }
-
-        div[data-testid="stTextInput"] > div {
-            width: 34px !important;
-            min-width: 34px !important;
-            max-width: 34px !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        .stTextInput input {
-            width: 34px !important;
-            min-width: 34px !important;
-            max-width: 34px !important;
-            height: 22px !important;
-            font-size: 10px !important;
-            font-weight: 900 !important;
-            color: #1e293b !important;
-            background: #dbeafe !important;
-            border-radius: 6px !important;
-            border: 1px solid #93c5fd !important;
-            text-align: center !important;
-            padding: 0 !important;
-        }
-
-        div[data-testid="stTextArea"] {
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        .stTextArea textarea {
-            width: 100% !important;
-            font-size: 10px !important;
-            padding: 5px !important;
-            border-radius: 6px !important;
-            border: 1px solid #cbd5e1 !important;
-            min-height: 70px !important;
-            margin: 0 !important;
-        }
-
-        .stTextArea textarea:focus,
-        .stTextInput input:focus {
-            border: 1px solid #3b82f6 !important;
-            box-shadow: 0 0 0 1px #3b82f6 !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.caption(f"Seçili Ay: {selected_month}")
+    # --- CSS KODLARINIZ BURADA AYNEN KALSIN (Çok uzun olduğu için buraya yazmıyorum, arkadaşının yazdığı <style> bloğunu buraya koy) ---
+    # st.markdown(""" <style> ... </style> """, unsafe_allow_html=True)
+    
+    st.caption(f"Seçili Ay: {selected_month} {current_year}")
 
     weekdays = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
     header_cols = st.columns(7, gap="small")
@@ -164,48 +92,52 @@ def render_monthly_food_calendar() -> None:
                 unsafe_allow_html=True,
             )
 
+    # Python'un Sihirli Takvim Matrisi!
+    # Bize haftaları liste olarak verir. Ayın dışındaki günleri 0 yapar.
+    month_matrix = calendar.monthcalendar(current_year, month_index)
+
     monthly_menu = st.session_state[MONTHLY_MENU_SESSION_KEY][selected_month]
-    day_labels = st.session_state[MONTHLY_DAY_LABELS_KEY][selected_month]
 
-    box_number = 1
-
-    for _ in range(5):
+    # Matristeki her hafta için bir satır oluştur
+    for week in month_matrix:
         cols = st.columns(7, gap="small")
+        
+        for i, day in enumerate(week):
+            with cols[i]:
+                if day == 0:
+                    # Bu kutu ayın dışında kalıyor, o yüzden görünmez boş bir alan çiz
+                    st.markdown('<div style="min-height: 112px;"></div>', unsafe_allow_html=True)
+                else:
+                    # Gerçek bir gün, kutuyu ve metin alanını çiz!
+                    with st.container(border=True):
+                        # Gün numarasını değiştirmelerine gerek yok, sabit yazıyoruz
+                        st.markdown(f'<div style="text-align: center; font-weight: 900; font-size: 12px; margin-bottom: 5px; color: #1e293b; background: #dbeafe; border-radius: 6px;">{day}</div>', unsafe_allow_html=True)
 
-        for col in cols:
-            with col:
-                with st.container(border=True):
-                    key = str(box_number)
-                    day_labels[key] = st.text_input(
-                        "",
-                        value=day_labels.get(key, key),
-                        key=f"day_label_{selected_month}_{box_number}",
-                        label_visibility="collapsed",
-                    )
-
-                    monthly_menu[key] = st.text_area(
-                        "",
-                        value=monthly_menu.get(key, ""),
-                        placeholder="Menü...",
-                        key=f"food_day_{selected_month}_{box_number}",
-                        label_visibility="collapsed",
-                    )
-
-                box_number += 1
+                        key_day = str(day)
+                        monthly_menu[key_day] = st.text_area(
+                            "",
+                            value=monthly_menu.get(key_day, ""),
+                            placeholder="Menü...",
+                            key=f"food_day_{selected_month}_{day}",
+                            label_visibility="collapsed",
+                        )
 
     st.session_state[MONTHLY_MENU_SESSION_KEY][selected_month] = monthly_menu
-    st.session_state[MONTHLY_DAY_LABELS_KEY][selected_month] = day_labels
-
     st.markdown("<br>", unsafe_allow_html=True)
 
     if st.button("💾 Aylık Menüyü Kaydet", type="primary", use_container_width=True):
-        res = save_monthly_meal_menu(st.session_state[MONTHLY_MENU_SESSION_KEY])
+        # Tüm yılı değil, sadece işlem yapılan Yılı, Ayı ve Günleri API'ye paketliyoruz!
+        payload = {
+            "yil": current_year,
+            "ay": selected_month,
+            "gunler": st.session_state[MONTHLY_MENU_SESSION_KEY][selected_month]
+        }
+        res = save_monthly_meal_menu(payload)
+        
         if res.get("status") == "success":
-            st.success(f"{selected_month} ayı yemek menüsü kaydedildi.")
+            st.success(f"{selected_month} {current_year} menüsü başarıyla kaydedildi!")
         else:
             st.error(res.get("message", "Aylık yemek menüsü kaydedilirken bir hata oluştu."))
-
-
 def main() -> None:
     redirect_if_not_logged_in(ROLE_STAFF, STAFF_LOGIN_PAGE)
 

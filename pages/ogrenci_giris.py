@@ -15,8 +15,6 @@ def validate_login_input(student_number: str, password: str) -> str | None:
         return "Öğrenci numarası boş bırakılamaz."
     if not clean_password:
         return "Şifre boş bırakılamaz."
-    if not clean_student_number.isdigit():
-        return "Öğrenci numarası yalnızca rakamlardan oluşmalıdır."
     if len(clean_student_number) < 4:
         return "Öğrenci numarası en az 4 haneli olmalıdır."
     if len(clean_password) < 4:
