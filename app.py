@@ -12,8 +12,22 @@ from core.constants import (
 from core.styles import load_landing_styles
 from core.ui import render_logo
 
-# Yeni aylık menü fonksiyonunu (get_monthly_meal_menu) da içeri aktarıyoruz
 from services.api_service import get_announcements, get_meal_menu, get_monthly_meal_menu
+
+# Kahvaltı fonksiyonları api_service.py içinde varsa kullanılır.
+# Yoksa kod hata vermesin diye default değer döndürür.
+try:
+    from services.api_service import get_breakfast_menu
+except ImportError:
+    def get_breakfast_menu():
+        return "Kahvaltı menüsü henüz girilmemiştir."
+
+
+try:
+    from services.api_service import get_monthly_breakfast_menu
+except ImportError:
+    def get_monthly_breakfast_menu():
+        return {}
 
 
 def load_lottieurl(url: str):
@@ -30,9 +44,20 @@ def sync_data_from_api() -> None:
     try:
         st.session_state[SESSION_ANNOUNCEMENTS] = get_announcements()
         st.session_state[SESSION_MEAL_MENU] = get_meal_menu()
+        st.session_state["SESSION_BREAKFAST_MENU"] = get_breakfast_menu()
     except Exception:
-        st.session_state[SESSION_ANNOUNCEMENTS] = st.session_state.get(SESSION_ANNOUNCEMENTS, [])
-        st.session_state[SESSION_MEAL_MENU] = st.session_state.get(SESSION_MEAL_MENU, "Menü yüklenemedi.")
+        st.session_state[SESSION_ANNOUNCEMENTS] = st.session_state.get(
+            SESSION_ANNOUNCEMENTS,
+            []
+        )
+        st.session_state[SESSION_MEAL_MENU] = st.session_state.get(
+            SESSION_MEAL_MENU,
+            "Menü yüklenemedi."
+        )
+        st.session_state["SESSION_BREAKFAST_MENU"] = st.session_state.get(
+            "SESSION_BREAKFAST_MENU",
+            "Kahvaltı menüsü yüklenemedi."
+        )
 
 
 # ---------------- HEADER ----------------
@@ -69,7 +94,10 @@ def render_hero(lottie_json) -> None:
 
 
 def render_announcements() -> None:
-    st.markdown('<h3 style="color:#1e293b; margin-bottom:20px;">📢 Güncel Bilgilendirmeler</h3>', unsafe_allow_html=True)
+    st.markdown(
+        '<h3 style="color:#1e293b; margin-bottom:20px;">📢 Güncel Bilgilendirmeler</h3>',
+        unsafe_allow_html=True,
+    )
 
     duyurular = st.session_state.get(SESSION_ANNOUNCEMENTS, [])
 
@@ -88,88 +116,273 @@ def render_announcements() -> None:
             unsafe_allow_html=True,
         )
 
+
 # ----------- AYLIK MENÜ MODALI (POP-UP) -----------
 @st.dialog("📅 Bu Ayın Yemek Takvimi", width="large")
 def render_monthly_menu_modal() -> None:
     now = datetime.now()
     current_year = now.year
     current_month = now.month
-    
-    MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+
+    MONTHS = [
+        "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+        "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+    ]
     current_month_name = MONTHS[current_month - 1]
 
-    with st.spinner("Menü yükleniyor..."):
-        all_data = get_monthly_meal_menu()
-        month_data = all_data.get(current_month_name, {})
-
-    if not month_data:
-        st.info("Bu ay için henüz menü girişi yapılmamıştır.")
-        return
-
-    # Takvim tablosu için CSS stilleri
-    st.markdown("""
+    st.markdown(
+        """
         <style>
-        .cal-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 10px; }
-        .cal-th { background-color: #f8fafc; color: #1e293b; padding: 10px; text-align: center; border: 1px solid #cbd5e1; font-weight: 800; font-size: 14px; }
-        .cal-td { border: 1px solid #cbd5e1; vertical-align: top; height: 110px; padding: 8px; background-color: white; overflow: hidden; }
-        .cal-td-empty { background-color: #f1f5f9; border: 1px solid #cbd5e1; }
-        .cal-today { background-color: #eff6ff; border: 2px solid #3b82f6; box-shadow: inset 0 0 5px rgba(59,130,246,0.2); }
-        .day-num { font-weight: 900; color: #3b82f6; font-size: 14px; margin-bottom: 5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; }
-        .meal-desc { font-size: 11px; color: #475569; line-height: 1.4; word-wrap: break-word; }
+        .cal-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-top: 15px;
+        }
+
+        .cal-th {
+            background-color: #f8fafc;
+            color: #1e293b;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #cbd5e1;
+            font-weight: 800;
+            font-size: 14px;
+        }
+
+        .cal-td {
+            border: 1px solid #cbd5e1;
+            vertical-align: top;
+            height: 120px;
+            padding: 8px;
+            background-color: white;
+            overflow: hidden;
+        }
+
+        .cal-td-empty {
+            background-color: #f1f5f9;
+            border: 1px solid #cbd5e1;
+        }
+
+        .cal-today {
+            background-color: #eff6ff;
+            border: 2px solid #3b82f6;
+            box-shadow: inset 0 0 5px rgba(59,130,246,0.2);
+        }
+
+        .day-num {
+            font-weight: 900;
+            color: #3b82f6;
+            font-size: 14px;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 3px;
+        }
+
+        .meal-desc {
+            font-size: 11px;
+            color: #475569;
+            line-height: 1.45;
+            word-wrap: break-word;
+        }
+
+        div[data-testid="stTabs"] button {
+            font-weight: 700;
+            font-size: 15px;
+        }
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # Python ile ayın takvim matrisini oluşturuyoruz
-    cal_matrix = calendar.monthcalendar(current_year, current_month)
-    weekdays = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
+    def create_calendar_html(month_data: dict) -> str:
+        cal_matrix = calendar.monthcalendar(current_year, current_month)
+        weekdays = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
 
-    # HTML tablosunu başlat (Hepsi tek satırda birleştirilecek)
-    html = '<table class="cal-table"><tr>'
-    
-    for w in weekdays:
-        html += f"<th class='cal-th'>{w}</th>"
-    html += "</tr>"
+        html = '<table class="cal-table"><tr>'
 
-    for week in cal_matrix:
-        html += "<tr>"
-        for day in week:
-            if day == 0:
-                html += "<td class='cal-td-empty'></td>"
-            else:
-                meal_text = month_data.get(str(day), "").strip()
-                # Eğer personel Enter'a basıp alt satıra geçmişse, bunu HTML'e uyarlıyoruz
-                meal_text = meal_text.replace('\n', '<br>')
-                
-                is_today = (day == now.day)
-                td_class = "cal-td cal-today" if is_today else "cal-td"
-                star = "⭐ " if is_today else ""
-                
-                # Markdown kafası karışmasın diye boşluk bırakmadan tek satırda fırlatıyoruz!
-                html += f"<td class='{td_class}'><div class='day-num'>{star}{day}</div><div class='meal-desc'>{meal_text}</div></td>"
+        for w in weekdays:
+            html += f"<th class='cal-th'>{w}</th>"
         html += "</tr>"
-    html += "</table>"
 
-    st.markdown(html, unsafe_allow_html=True)
-        
+        for week in cal_matrix:
+            html += "<tr>"
+
+            for day in week:
+                if day == 0:
+                    html += "<td class='cal-td-empty'></td>"
+                else:
+                    menu_text = month_data.get(str(day), "").strip()
+                    menu_text = menu_text.replace("\n", "<br>")
+
+                    is_today = day == now.day
+                    td_class = "cal-td cal-today" if is_today else "cal-td"
+                    star = "⭐ " if is_today else ""
+
+                    html += (
+                        f"<td class='{td_class}'>"
+                        f"<div class='day-num'>{star}{day}</div>"
+                        f"<div class='meal-desc'>{menu_text}</div>"
+                        f"</td>"
+                    )
+
+            html += "</tr>"
+
+        html += "</table>"
+        return html
+
+    # Solda Kahvaltı, sağda Akşam Yemeği
+    tab_kahvalti, tab_aksam = st.tabs(["☕ Kahvaltı", "🍽️ Akşam Yemeği"])
+
+    with tab_kahvalti:
+        with st.spinner("Kahvaltı menüsü yükleniyor..."):
+            all_breakfast_data = get_monthly_breakfast_menu()
+            breakfast_month_data = all_breakfast_data.get(current_month_name, {})
+
+        if not breakfast_month_data:
+            st.info("Bu ay için kahvaltı menüsü girilmemiştir.")
+        else:
+            breakfast_html = create_calendar_html(breakfast_month_data)
+            st.markdown(breakfast_html, unsafe_allow_html=True)
+
+    with tab_aksam:
+        with st.spinner("Akşam yemeği menüsü yükleniyor..."):
+            all_dinner_data = get_monthly_meal_menu()
+            dinner_month_data = all_dinner_data.get(current_month_name, {})
+
+        if not dinner_month_data:
+            st.info("Bu ay için akşam yemeği menüsü girilmemiştir.")
+        else:
+            dinner_html = create_calendar_html(dinner_month_data)
+            st.markdown(dinner_html, unsafe_allow_html=True)
+
+
+def format_menu_items(menu_text: str) -> str:
+    if not isinstance(menu_text, str):
+        return (
+            "<div class='menu-item'>"
+            "<span class='meal-emoji'>🌟</span>"
+            "<span>Menü bilgisi yüklenemedi.</span>"
+            "</div>"
+        )
+
+    cleaned_menu = menu_text.replace("\n", ",")
+    menu_items = [item.strip() for item in cleaned_menu.split(",") if item.strip()]
+
+    if not menu_items:
+        return (
+            "<div class='menu-item'>"
+            "<span class='meal-emoji'>🌟</span>"
+            "<span>Menü bilgisi bulunamadı.</span>"
+            "</div>"
+        )
+
+    formatted_menu = "".join(
+        [
+            f"<div class='menu-item'><span class='meal-emoji'>🌟</span><span>{item}</span></div>"
+            for item in menu_items
+        ]
+    )
+
+    return formatted_menu
+
+
 def render_menu_card() -> None:
-    st.markdown('<h3 style="color:#1e293b; margin-bottom:20px;">🍴 Bugün Ne Var?</h3>', unsafe_allow_html=True)
+    st.markdown(
+        '<h3 style="color:#1e293b; margin-bottom:20px;">🍴 Bugün Ne Var?</h3>',
+        unsafe_allow_html=True,
+    )
 
-    current_menu = st.session_state.get(SESSION_MEAL_MENU, "Menü bilgisi yüklenemedi.")
+    # Ana sayfada ekranı boğmayan küçük seçim alanı
+    menu_type = st.radio(
+        label="Menü türü seçin",
+        options=["☕ Kahvaltı", "🍽️ Akşam"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="today_menu_type",
+    )
+
+    if menu_type == "☕ Kahvaltı":
+        current_menu = st.session_state.get(
+            "SESSION_BREAKFAST_MENU",
+            "Kahvaltı menüsü yüklenemedi."
+        )
+        card_title = "Kahvaltı"
+    else:
+        current_menu = st.session_state.get(
+            SESSION_MEAL_MENU,
+            "Akşam yemeği menüsü yüklenemedi."
+        )
+        card_title = "Akşam Yemeği"
+
+    formatted_menu = format_menu_items(current_menu)
 
     st.markdown(
-        f"""
-        <div class="modern-menu-card">
-            <div style="
-                text-align:center;
-                color:#475569;
-                font-size:15px;
-                padding:20px 12px;
-            ">
-                {current_menu}
-            </div>
-            <div class="afiyet-text">AFİYET OLSUN!</div>
-        </div>
-        """,
+f"""
+<style>
+div[role="radiogroup"] {{
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: -8px;
+    margin-bottom: 12px;
+}}
+
+div[role="radiogroup"] label {{
+    background-color: rgba(255, 255, 255, 0.75);
+    border-radius: 999px;
+    padding: 5px 10px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+}}
+
+.menu-card-title {{
+    text-align: center;
+    color: #1e293b;
+    font-size: 15px;
+    font-weight: 800;
+    margin-bottom: 6px;
+}}
+
+.menu-list {{
+    text-align: left;
+    color: #475569;
+    font-size: 15px;
+    line-height: 1.65;
+    padding: 8px 36px 8px 36px;
+}}
+
+.menu-item {{
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}}
+
+.meal-emoji {{
+    min-width: 24px;
+    display: inline-block;
+    text-align: center;
+}}
+
+.afiyet-text {{
+    text-align: center;
+    color: #00853e;
+    font-weight: 900;
+    letter-spacing: 2px;
+    font-size: 13px;
+    margin-top: 20px;
+}}
+</style>
+
+<div class="modern-menu-card">
+    <div class="menu-card-title">{card_title}</div>
+    <div class="menu-list">
+        {formatted_menu}
+    </div>
+    <div class="afiyet-text">AFİYET OLSUN!</div>
+</div>
+""",
         unsafe_allow_html=True,
     )
 

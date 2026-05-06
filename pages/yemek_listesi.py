@@ -7,9 +7,11 @@ from core.styles import load_student_panel_page_styles
 from services.api_service import get_monthly_meal_menu, save_monthly_meal_menu
 
 
-MONTHLY_MENU_SESSION_KEY = "monthly_food_calendar"
+MONTHLY_DINNER_MENU_SESSION_KEY = "monthly_food_calendar"
+MONTHLY_BREAKFAST_MENU_SESSION_KEY = "monthly_breakfast_calendar"
 MONTHLY_DAY_LABELS_KEY = "monthly_food_day_labels"
 MONTHLY_SELECTED_MONTH_KEY = "monthly_selected_month"
+MONTHLY_SELECTED_MEAL_TYPE_KEY = "monthly_selected_meal_type"
 MONTHLY_MENU_LOADED_KEY = "monthly_menu_loaded"
 
 MONTHS = [
@@ -17,21 +19,35 @@ MONTHS = [
     "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
 ]
 
+MEAL_TYPES = ["Kahvaltı", "Akşam Yemeği"]
+
 
 def render_back() -> None:
     if st.button("← Personel Paneline Dön"):
         st.switch_page("pages/personel_panel.py")
 
 
+def create_empty_monthly_menu() -> dict:
+    return {
+        month: {str(day): "" for day in range(1, 36)}
+        for month in MONTHS
+    }
+
+
 def init_monthly_menu_state() -> None:
     if MONTHLY_SELECTED_MONTH_KEY not in st.session_state:
         st.session_state[MONTHLY_SELECTED_MONTH_KEY] = "Ocak"
 
-    if MONTHLY_MENU_SESSION_KEY not in st.session_state:
-        st.session_state[MONTHLY_MENU_SESSION_KEY] = {
-            month: {str(day): "" for day in range(1, 36)}
-            for month in MONTHS
-        }
+    if MONTHLY_SELECTED_MEAL_TYPE_KEY not in st.session_state:
+        st.session_state[MONTHLY_SELECTED_MEAL_TYPE_KEY] = "Akşam Yemeği"
+
+    # Akşam yemeği eski database yapısıyla aynı tutuluyor
+    if MONTHLY_DINNER_MENU_SESSION_KEY not in st.session_state:
+        st.session_state[MONTHLY_DINNER_MENU_SESSION_KEY] = create_empty_monthly_menu()
+
+    # Kahvaltı şimdilik database'e bağlı değil, sadece session'da tutuluyor
+    if MONTHLY_BREAKFAST_MENU_SESSION_KEY not in st.session_state:
+        st.session_state[MONTHLY_BREAKFAST_MENU_SESSION_KEY] = create_empty_monthly_menu()
 
     if MONTHLY_DAY_LABELS_KEY not in st.session_state:
         st.session_state[MONTHLY_DAY_LABELS_KEY] = {
@@ -44,20 +60,33 @@ def init_monthly_menu_state() -> None:
 
 
 def sync_monthly_menu_from_api() -> None:
+    """
+    Sadece akşam yemeği database'den çekiliyor.
+    Kahvaltı henüz database'e bağlı olmadığı için burada API'den alınmıyor.
+    """
     if st.session_state.get(MONTHLY_MENU_LOADED_KEY):
         return
 
     menu_data = get_monthly_meal_menu()
+
     if isinstance(menu_data, dict) and menu_data:
-        st.session_state[MONTHLY_MENU_SESSION_KEY] = menu_data
+        st.session_state[MONTHLY_DINNER_MENU_SESSION_KEY] = menu_data
+
     st.session_state[MONTHLY_MENU_LOADED_KEY] = True
 
 
-def render_month_selector() -> str:
+def render_top_controls() -> tuple[str, str]:
     col_left, col_right = st.columns([5, 1.5])
 
     with col_left:
         st.title("🍽️ Aylık Yemek Menüsü Takvimi")
+
+        selected_meal_type = st.radio(
+            "Menü Türü Seç",
+            MEAL_TYPES,
+            horizontal=True,
+            key=MONTHLY_SELECTED_MEAL_TYPE_KEY,
+        )
 
     with col_right:
         selected_month = st.selectbox(
@@ -67,20 +96,31 @@ def render_month_selector() -> str:
             key=MONTHLY_SELECTED_MONTH_KEY,
         )
 
-    return selected_month
+    return selected_month, selected_meal_type
+
+
+def get_active_menu(selected_meal_type: str, selected_month: str) -> dict:
+    if selected_meal_type == "Kahvaltı":
+        return st.session_state[MONTHLY_BREAKFAST_MENU_SESSION_KEY][selected_month]
+
+    return st.session_state[MONTHLY_DINNER_MENU_SESSION_KEY][selected_month]
+
+
+def update_active_menu(selected_meal_type: str, selected_month: str, monthly_menu: dict) -> None:
+    if selected_meal_type == "Kahvaltı":
+        st.session_state[MONTHLY_BREAKFAST_MENU_SESSION_KEY][selected_month] = monthly_menu
+    else:
+        st.session_state[MONTHLY_DINNER_MENU_SESSION_KEY][selected_month] = monthly_menu
 
 
 def render_monthly_food_calendar() -> None:
-    selected_month = render_month_selector()
-    
-    # Gerçek takvim mantığı için mevcut yılı alıyoruz
-    current_year = datetime.now().year
-    month_index = MONTHS.index(selected_month) + 1 # Seçilen ayın numarasını (1-12) buluruz
+    selected_month, selected_meal_type = render_top_controls()
 
-    # --- CSS KODLARINIZ BURADA AYNEN KALSIN (Çok uzun olduğu için buraya yazmıyorum, arkadaşının yazdığı <style> bloğunu buraya koy) ---
-    # st.markdown(""" <style> ... </style> """, unsafe_allow_html=True)
-    
+    current_year = datetime.now().year
+    month_index = MONTHS.index(selected_month) + 1
+
     st.caption(f"Seçili Ay: {selected_month} {current_year}")
+    st.caption(f"Düzenlenen Menü: {selected_meal_type}")
 
     weekdays = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
     header_cols = st.columns(7, gap="small")
@@ -92,52 +132,83 @@ def render_monthly_food_calendar() -> None:
                 unsafe_allow_html=True,
             )
 
-    # Python'un Sihirli Takvim Matrisi!
-    # Bize haftaları liste olarak verir. Ayın dışındaki günleri 0 yapar.
     month_matrix = calendar.monthcalendar(current_year, month_index)
 
-    monthly_menu = st.session_state[MONTHLY_MENU_SESSION_KEY][selected_month]
+    monthly_menu = get_active_menu(selected_meal_type, selected_month)
 
-    # Matristeki her hafta için bir satır oluştur
     for week in month_matrix:
         cols = st.columns(7, gap="small")
-        
+
         for i, day in enumerate(week):
             with cols[i]:
                 if day == 0:
-                    # Bu kutu ayın dışında kalıyor, o yüzden görünmez boş bir alan çiz
-                    st.markdown('<div style="min-height: 112px;"></div>', unsafe_allow_html=True)
+                    st.markdown(
+                        '<div style="min-height: 112px;"></div>',
+                        unsafe_allow_html=True
+                    )
                 else:
-                    # Gerçek bir gün, kutuyu ve metin alanını çiz!
                     with st.container(border=True):
-                        # Gün numarasını değiştirmelerine gerek yok, sabit yazıyoruz
-                        st.markdown(f'<div style="text-align: center; font-weight: 900; font-size: 12px; margin-bottom: 5px; color: #1e293b; background: #dbeafe; border-radius: 6px;">{day}</div>', unsafe_allow_html=True)
+                        st.markdown(
+                            f"""
+                            <div style="
+                                text-align: center;
+                                font-weight: 900;
+                                font-size: 12px;
+                                margin-bottom: 5px;
+                                color: #1e293b;
+                                background: #dbeafe;
+                                border-radius: 6px;
+                            ">
+                                {day}
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
 
                         key_day = str(day)
+
+                        if selected_meal_type == "Kahvaltı":
+                            placeholder_text = "Kahvaltı menüsü..."
+                            textarea_key = f"breakfast_day_{selected_month}_{day}"
+                        else:
+                            placeholder_text = "Akşam yemeği menüsü..."
+                            textarea_key = f"dinner_day_{selected_month}_{day}"
+
                         monthly_menu[key_day] = st.text_area(
                             "",
                             value=monthly_menu.get(key_day, ""),
-                            placeholder="Menü...",
-                            key=f"food_day_{selected_month}_{day}",
+                            placeholder=placeholder_text,
+                            key=textarea_key,
                             label_visibility="collapsed",
                         )
 
-    st.session_state[MONTHLY_MENU_SESSION_KEY][selected_month] = monthly_menu
+    update_active_menu(selected_meal_type, selected_month, monthly_menu)
+
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if st.button("💾 Aylık Menüyü Kaydet", type="primary", use_container_width=True):
-        # Tüm yılı değil, sadece işlem yapılan Yılı, Ayı ve Günleri API'ye paketliyoruz!
-        payload = {
-            "yil": current_year,
-            "ay": selected_month,
-            "gunler": st.session_state[MONTHLY_MENU_SESSION_KEY][selected_month]
-        }
-        res = save_monthly_meal_menu(payload)
-        
-        if res.get("status") == "success":
-            st.success(f"{selected_month} {current_year} menüsü başarıyla kaydedildi!")
-        else:
-            st.error(res.get("message", "Aylık yemek menüsü kaydedilirken bir hata oluştu."))
+    if selected_meal_type == "Akşam Yemeği":
+        if st.button("💾 Akşam Yemeği Menüsünü Kaydet", type="primary", use_container_width=True):
+            payload = {
+                "yil": current_year,
+                "ay": selected_month,
+                "gunler": st.session_state[MONTHLY_DINNER_MENU_SESSION_KEY][selected_month]
+            }
+
+            res = save_monthly_meal_menu(payload)
+
+            if res.get("status") == "success":
+                st.success(f"{selected_month} {current_year} akşam yemeği menüsü başarıyla kaydedildi!")
+            else:
+                st.error(res.get("message", "Aylık yemek menüsü kaydedilirken bir hata oluştu."))
+
+    else:
+        st.info("Kahvaltı menüsü şu an sadece ekranda düzenlenir. Database kaydı daha sonra eklenecek.")
+
+        if st.button("✅ Kahvaltı Menüsünü Kaydet", use_container_width=True):
+            st.session_state[MONTHLY_BREAKFAST_MENU_SESSION_KEY][selected_month] = monthly_menu
+            st.success(f"{selected_month} {current_year} kahvaltı menüsü kaydedildi.")
+
+
 def main() -> None:
     redirect_if_not_logged_in(ROLE_STAFF, STAFF_LOGIN_PAGE)
 

@@ -95,13 +95,18 @@ def cancel_fault(fault_id: int) -> None:
         st.error("Bildirim iptal edilemedi.")
 
 
-def delete_fault(fault_id: int) -> None:
-    # Backend "Silindi" durumunu desteklemelidir.
-    res = update_fault_api(fault_id, "Silindi")
-    if res.get("status") == "success":
-        st.rerun()
-    else:
-        st.error("Bildirim silinemedi. Backend'de silme desteği olmayabilir.")
+def get_fault_image(fault: Dict):
+    """
+    Backend hangi isimle görsel bilgisini döndürüyorsa onu yakalamak için
+    birkaç farklı alan adı kontrol ediyoruz.
+    """
+    return (
+        fault.get("gorsel_url")
+        or fault.get("image_url")
+        or fault.get("foto_url")
+        or fault.get("resim_url")
+        or fault.get("gorsel")
+    )
 
 
 def render_fault_card(index: int, fault: Dict) -> None:
@@ -111,22 +116,26 @@ def render_fault_card(index: int, fault: Dict) -> None:
     tarih = fault.get("tarih", "-")
     ogrenci_no = fault.get("ogrenci_no", "-")
     aciklama = fault.get("aciklama") or fault.get("detay") or "Açıklama belirtilmedi."
+    fault_image = get_fault_image(fault)
 
     with st.container(border=True):
         # ÜST SATIR
-        left, right = st.columns([5, 1])
-
-        with left:
-            st.markdown(f"#### 🚪 {oda_no} No'lu Oda")
-            st.caption(f"📅 {tarih}   |   👤 {ogrenci_no}")
-
-        with right:
-            if fault.get("id"):
-                if st.button("✕", key=f"sil_{index}", use_container_width=True):
-                    delete_fault(fault["id"])
+        # X butonu kaldırıldığı için sağ kolon kullanmıyoruz.
+        st.markdown(f"#### 🚪 {oda_no} No'lu Oda")
+        st.caption(f"📅 {tarih}   |   👤 {ogrenci_no}")
 
         # AÇIKLAMA
         st.write(aciklama)
+
+        # GÖRSEL
+        if fault_image:
+            st.markdown("##### 📷 Arıza Görseli")
+            st.image(
+                fault_image,
+                caption="Öğrencinin yüklediği arıza görseli",
+                use_container_width=False,
+                width=350
+            )
 
         # ALT SATIR
         left2, right2 = st.columns([4, 2])
