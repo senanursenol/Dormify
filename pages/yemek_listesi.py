@@ -190,44 +190,38 @@ def render_monthly_food_calendar() -> None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # ---------------- KAYDETME BUTONLARI VE İŞLEMLERİ ----------------
     if selected_meal_type == "Akşam Yemeği":
+        # Tüm kaydetme işlemini butonun İÇİNE alıyoruz (Girintiye dikkat!)
         if st.button("💾 Akşam Yemeği Menüsünü Kaydet", type="primary", use_container_width=True):
             payload = {
                 "yil": current_year,
                 "ay": selected_month,
-                "gunler": st.session_state[MONTHLY_DINNER_MENU_SESSION_KEY][selected_month]
+                "tur": "Akşam Yemeği",
+                "gunler": monthly_menu
             }
+            res = save_monthly_meal_menu(payload)
 
-    if selected_meal_type == "Akşam Yemeği":
-        payload = {
-            "yil": current_year,
-            "ay": selected_month,
-            "tur": "Akşam Yemeği",
-            "gunler": monthly_menu
-        }
-
-        res = save_monthly_meal_menu(payload)
-
-        if res.get("status") == "success":
-            st.success(f"{selected_month} {current_year} akşam yemeği menüsü başarıyla kaydedildi!")
-        else:
-            st.error(res.get("message", "Aylık yemek menüsü kaydedilirken bir hata oluştu."))
+            if res.get("status") == "success":
+                st.success(f"{selected_month} {current_year} akşam yemeği menüsü başarıyla kaydedildi!")
+            else:
+                st.error(res.get("message", "Aylık yemek menüsü kaydedilirken bir hata oluştu."))
 
     elif selected_meal_type == "Kahvaltı":
-        payload = {
-            "yil": current_year,
-            "ay": selected_month,
-            "tur": "Kahvaltı",
-            "gunler": monthly_menu
-        }
+        # Tüm kaydetme işlemini butonun İÇİNE alıyoruz
+        if st.button("💾 Kahvaltı Menüsünü Kaydet", type="primary", use_container_width=True):
+            payload = {
+                "yil": current_year,
+                "ay": selected_month,
+                "tur": "Kahvaltı",
+                "gunler": monthly_menu
+            }
+            res = save_monthly_meal_menu(payload)
 
-        res = save_monthly_meal_menu(payload)
-
-        if res.get("status") == "success":
-            st.success(f"{selected_month} {current_year} kahvaltı menüsü başarıyla kaydedildi!")
-        else:
-            st.error(res.get("message", "Aylık kahvaltı menüsü kaydedilirken bir hata oluştu."))
-
+            if res.get("status") == "success":
+                st.success(f"{selected_month} {current_year} kahvaltı menüsü başarıyla kaydedildi!")
+            else:
+                st.error(res.get("message", "Aylık kahvaltı menüsü kaydedilirken bir hata oluştu."))
 
 def main() -> None:
     redirect_if_not_logged_in(ROLE_STAFF, STAFF_LOGIN_PAGE)

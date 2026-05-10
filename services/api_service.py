@@ -2,7 +2,7 @@ import requests
 import streamlit as st
 
 # FastAPI sunucusunun çalıştığı adres ve port
-BASE_URL = "http://127.0.0.1:8001"
+BASE_URL = "http://127.0.0.1:8000"
 
 # ---------------------------------------------------------
 # 1. DUYURU İŞLEMLERİ (GET & POST)
