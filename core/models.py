@@ -26,6 +26,7 @@ class ArizaKaydi(Base):
     oda_no = Column(String(10))
     baslik = Column(String(100))
     aciklama = Column(Text)
+    gorsel = Column(Text, nullable=True)  # Görsel için base64 string alanı
     tarih = Column(String(50), default=lambda: datetime.now().strftime("%d.%m.%Y %H:%M"))
     durum = Column(String(20), default="Beklemede")
 
@@ -46,6 +47,7 @@ class YemekMenusu(Base):
     yil = Column(Integer, index=True)        # Hangi yıl? Örn: 2026
     ay = Column(String(20), index=True)      # Hangi ay? Örn: "Ocak", "Şubat"
     gun = Column(Integer)                    # Ayın kaçıncı günü? Örn: 1, 15, 31
+    tur = Column(String(20), default="Akşam Yemeği")  # Yemek türü: "Kahvaltı" veya "Akşam Yemeği"
     icerik = Column(Text)                    # O günün yemeği: "Çorba, Pilav..."
 
 # Modelleri veritabanına yazar

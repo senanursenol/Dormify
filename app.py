@@ -12,17 +12,10 @@ from core.constants import (
 from core.styles import load_landing_styles
 from core.ui import render_logo
 
-from services.api_service import get_announcements, get_meal_menu, get_monthly_meal_menu
+from services.api_service import get_announcements, get_meal_menu, get_monthly_meal_menu, get_breakfast_menu, get_monthly_breakfast_menu
 
 # Kahvaltı fonksiyonları api_service.py içinde varsa kullanılır.
 # Yoksa kod hata vermesin diye default değer döndürür.
-try:
-    from services.api_service import get_breakfast_menu
-except ImportError:
-    def get_breakfast_menu():
-        return "Kahvaltı menüsü henüz girilmemiştir."
-
-
 try:
     from services.api_service import get_monthly_breakfast_menu
 except ImportError:

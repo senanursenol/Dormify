@@ -7,6 +7,9 @@ from core.constants import (
     STUDENT_LOGIN_PAGE,
     STUDENT_PANEL_PAGE,
 )
+import base64
+from binascii import Error as BinasciiError
+
 from core.styles import load_student_notifications_page_styles
 
 from services.api_service import (
@@ -109,6 +112,23 @@ def get_fault_image(fault: Dict):
     )
 
 
+def decode_base64_image(image_value):
+    if not isinstance(image_value, str):
+        return image_value
+
+    if image_value.startswith("data:image"):
+        try:
+            header, _, data = image_value.partition(",")
+            return base64.b64decode(data)
+        except (BinasciiError, ValueError):
+            return image_value
+
+    try:
+        return base64.b64decode(image_value)
+    except (BinasciiError, ValueError):
+        return image_value
+
+
 def render_fault_card(index: int, fault: Dict) -> None:
     status, status_label, status_icon = get_status_info(fault)
 
@@ -116,7 +136,7 @@ def render_fault_card(index: int, fault: Dict) -> None:
     tarih = fault.get("tarih", "-")
     ogrenci_no = fault.get("ogrenci_no", "-")
     aciklama = fault.get("aciklama") or fault.get("detay") or "Açıklama belirtilmedi."
-    fault_image = get_fault_image(fault)
+    fault_image = decode_base64_image(get_fault_image(fault))
 
     with st.container(border=True):
         # ÜST SATIR

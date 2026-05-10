@@ -1,3 +1,4 @@
+import base64
 import streamlit as st
 
 # Sistem modülleri ve oturum yönetimi sabitleri
@@ -24,6 +25,23 @@ from services.api_service import (
 
 # İstatistikleri hesaplayan fonksiyonu dahil ediyoruz
 from services.fault_service import get_status_counts
+
+
+def decode_base64_image(image_value):
+    if not isinstance(image_value, str):
+        return image_value
+
+    if image_value.startswith("data:image"):
+        try:
+            _, _, data = image_value.partition(",")
+            return base64.b64decode(data)
+        except Exception:
+            return image_value
+
+    try:
+        return base64.b64decode(image_value)
+    except Exception:
+        return image_value
 
 
 def init_admin_state() -> None:
@@ -261,7 +279,7 @@ def render_fault_page() -> None:
     for fault in faults:
         fault_id = fault.get("id")
         # Öğrencinin yüklediği görsel verisini API'den alıyoruz
-        gorsel_yolu = fault.get("gorsel") 
+        gorsel_yolu = decode_base64_image(fault.get("gorsel"))
 
         with st.container(border=True):
             status = fault.get("durum", "Beklemede")

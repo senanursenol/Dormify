@@ -1,7 +1,10 @@
+import logging
+
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from datetime import datetime
 
@@ -10,10 +13,17 @@ from core.database import SessionLocal, engine
 from core import models
 from core.security import verify_password  # Şifre çözücü
 
+logging.basicConfig(level=logging.INFO)
+
 # Tabloları oluştur (Eğer yoksa)
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Dormify Backend API")
+
+@app.on_event("startup")
+def ensure_tur_column_exists():
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE yemek_menusu ADD COLUMN IF NOT EXISTS tur TEXT DEFAULT 'Akşam Yemeği'"))
 
 # CORS Ayarları
 app.add_middleware(
@@ -104,12 +114,13 @@ def get_menu(db: Session = Depends(get_db)):
     bugun = datetime.now()
     yil = bugun.year
     gun = bugun.day
-    ay_adi = MONTHS[bugun.month - 1] 
+    ay_adi = MONTHS[bugun.month - 1]
 
     gunluk_menu = db.query(models.YemekMenusu).filter(
         models.YemekMenusu.yil == yil,
         models.YemekMenusu.ay == ay_adi,
-        models.YemekMenusu.gun == gun
+        models.YemekMenusu.gun == gun,
+        models.YemekMenusu.tur == "Akşam Yemeği"  # Varsayılan olarak akşam yemeği
     ).first()
 
     if gunluk_menu and gunluk_menu.icerik:
@@ -117,46 +128,91 @@ def get_menu(db: Session = Depends(get_db)):
     else:
         return {"menu": "Bugün için henüz yemek menüsü girilmemiştir."}
 
+# GÜNLÜK KAHVALTI MENÜSÜ - GET
+@app.get("/breakfast-menu", tags=["Yemekhane"])
+def get_breakfast_menu(db: Session = Depends(get_db)):
+    bugun = datetime.now()
+    yil = bugun.year
+    gun = bugun.day
+    ay_adi = MONTHS[bugun.month - 1]
+
+    gunluk_kahvalti = db.query(models.YemekMenusu).filter(
+        models.YemekMenusu.yil == yil,
+        models.YemekMenusu.ay == ay_adi,
+        models.YemekMenusu.gun == gun,
+        models.YemekMenusu.tur == "Kahvaltı"
+    ).first()
+
+    if gunluk_kahvalti and gunluk_kahvalti.icerik:
+        return {"menu": gunluk_kahvalti.icerik}
+    else:
+        return {"menu": "Bugün için henüz kahvaltı menüsü girilmemiştir."}
+
 # AYLIK MENÜ - GET: Veritabanından okuyup ön yüzün istediği formata (35 gün) çevirir
 @app.get("/monthly-meal-menu", tags=["Yemekhane"])
 def get_monthly_menu(yil: int = None, db: Session = Depends(get_db)):
     if yil is None:
         yil = datetime.now().year
-        
+
     menu_data = {month: {str(day): "" for day in range(1, 36)} for month in MONTHS}
-    
-    kayitlar = db.query(models.YemekMenusu).filter(models.YemekMenusu.yil == yil).all()
-    
+
+    kayitlar = db.query(models.YemekMenusu).filter(
+        models.YemekMenusu.yil == yil,
+        models.YemekMenusu.tur == "Akşam Yemeği"  # Sadece akşam yemeği kayıtları
+    ).all()
+
     for kayit in kayitlar:
         if kayit.ay in menu_data:
             menu_data[kayit.ay][str(kayit.gun)] = kayit.icerik
-            
+
+    return menu_data
+
+# AYLIK KAHVALTI MENÜSÜ - GET
+@app.get("/monthly-breakfast-menu", tags=["Yemekhane"])
+def get_monthly_breakfast_menu(yil: int = None, db: Session = Depends(get_db)):
+    if yil is None:
+        yil = datetime.now().year
+
+    menu_data = {month: {str(day): "" for day in range(1, 36)} for month in MONTHS}
+
+    kayitlar = db.query(models.YemekMenusu).filter(
+        models.YemekMenusu.yil == yil,
+        models.YemekMenusu.tur == "Kahvaltı"  # Sadece kahvaltı kayıtları
+    ).all()
+
+    for kayit in kayitlar:
+        if kayit.ay in menu_data:
+            menu_data[kayit.ay][str(kayit.gun)] = kayit.icerik
+
     return menu_data
 
 # AYLIK MENÜ - POST: Gelen paketi veritabanına kaydeder
 class MonthlyMenuPayload(BaseModel):
     yil: int
     ay: str
+    tur: str  # "Kahvaltı" veya "Akşam Yemeği"
     gunler: Dict[str, str]
 
 @app.post("/save-monthly-menu", tags=["Yemekhane"])
 def save_monthly_menu(req: MonthlyMenuPayload, db: Session = Depends(get_db)):
     db.query(models.YemekMenusu).filter(
         models.YemekMenusu.yil == req.yil,
-        models.YemekMenusu.ay == req.ay
+        models.YemekMenusu.ay == req.ay,
+        models.YemekMenusu.tur == req.tur  # Tür'e göre filtrele
     ).delete()
-    
+
     for gun_str, yemek in req.gunler.items():
         yemek_metni = str(yemek).strip()
-        if yemek_metni: 
+        if yemek_metni:
             yeni_yemek = models.YemekMenusu(
                 yil=req.yil,
                 ay=req.ay,
                 gun=int(gun_str),
+                tur=req.tur,  # Tür bilgisini kaydet
                 icerik=yemek_metni
             )
             db.add(yeni_yemek)
-            
+
     db.commit()
     return {"status": "success", "message": "Menü başarıyla kaydedildi"}
 
@@ -195,6 +251,9 @@ def create_fault(ariza: dict, db: Session = Depends(get_db)):
     try:
         gelen_ogrenci_no = ariza.get('ogrenci_no', 'Bilinmiyor')
         
+        # Görsel verisini işle (base64 string olarak)
+        gorsel_data = ariza.get('gorsel')
+        
         # 1. Gelen numarayla veritabanındaki öğrenciyi buluyoruz
         ogrenci = db.query(models.Ogrenci).filter(models.Ogrenci.ogrenci_no == gelen_ogrenci_no).first()
         
@@ -206,6 +265,7 @@ def create_fault(ariza: dict, db: Session = Depends(get_db)):
             baslik=ariza.get('baslik', 'Arıza Bildirimi'),
             aciklama=ariza.get('detay'),
             oda_no=bulunan_oda,  # <--- ARTIK ÖĞRENCİ TABLOSUNDAN OTOMATİK GELİYOR!
+            gorsel=gorsel_data,  # Görsel verisini ekle
             durum="Beklemede"
         )
         db.add(yeni_ariza)
@@ -213,7 +273,8 @@ def create_fault(ariza: dict, db: Session = Depends(get_db)):
         return {"status": "success", "message": "Arıza veritabanına kaydedildi."}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        logging.exception("create_fault error")
+        raise HTTPException(status_code=500, detail=f"Sunucu hatası: {e}")
 
 @app.put("/update-fault/{fault_id}", tags=["Arıza İşlemleri"])
 def update_fault_status(fault_id: int, yeni_durum: str, db: Session = Depends(get_db)):

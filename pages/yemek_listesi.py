@@ -4,7 +4,7 @@ from datetime import datetime
 from core.auth import redirect_if_not_logged_in
 from core.constants import ROLE_STAFF, STAFF_LOGIN_PAGE
 from core.styles import load_student_panel_page_styles
-from services.api_service import get_monthly_meal_menu, save_monthly_meal_menu
+from services.api_service import get_monthly_meal_menu, save_monthly_meal_menu, get_monthly_breakfast_menu
 
 
 MONTHLY_DINNER_MENU_SESSION_KEY = "monthly_food_calendar"
@@ -61,16 +61,20 @@ def init_monthly_menu_state() -> None:
 
 def sync_monthly_menu_from_api() -> None:
     """
-    Sadece akşam yemeği database'den çekiliyor.
-    Kahvaltı henüz database'e bağlı olmadığı için burada API'den alınmıyor.
+    Hem akşam yemeği hem kahvaltı menüsü database'den çekiliyor.
     """
     if st.session_state.get(MONTHLY_MENU_LOADED_KEY):
         return
 
-    menu_data = get_monthly_meal_menu()
+    # Akşam yemeği menüsünü çek
+    dinner_menu_data = get_monthly_meal_menu()
+    if isinstance(dinner_menu_data, dict) and dinner_menu_data:
+        st.session_state[MONTHLY_DINNER_MENU_SESSION_KEY] = dinner_menu_data
 
-    if isinstance(menu_data, dict) and menu_data:
-        st.session_state[MONTHLY_DINNER_MENU_SESSION_KEY] = menu_data
+    # Kahvaltı menüsünü çek
+    breakfast_menu_data = get_monthly_breakfast_menu()
+    if isinstance(breakfast_menu_data, dict) and breakfast_menu_data:
+        st.session_state[MONTHLY_BREAKFAST_MENU_SESSION_KEY] = breakfast_menu_data
 
     st.session_state[MONTHLY_MENU_LOADED_KEY] = True
 
@@ -194,19 +198,35 @@ def render_monthly_food_calendar() -> None:
                 "gunler": st.session_state[MONTHLY_DINNER_MENU_SESSION_KEY][selected_month]
             }
 
-            res = save_monthly_meal_menu(payload)
+    if selected_meal_type == "Akşam Yemeği":
+        payload = {
+            "yil": current_year,
+            "ay": selected_month,
+            "tur": "Akşam Yemeği",
+            "gunler": monthly_menu
+        }
 
-            if res.get("status") == "success":
-                st.success(f"{selected_month} {current_year} akşam yemeği menüsü başarıyla kaydedildi!")
-            else:
-                st.error(res.get("message", "Aylık yemek menüsü kaydedilirken bir hata oluştu."))
+        res = save_monthly_meal_menu(payload)
 
-    else:
-        st.info("Kahvaltı menüsü şu an sadece ekranda düzenlenir. Database kaydı daha sonra eklenecek.")
+        if res.get("status") == "success":
+            st.success(f"{selected_month} {current_year} akşam yemeği menüsü başarıyla kaydedildi!")
+        else:
+            st.error(res.get("message", "Aylık yemek menüsü kaydedilirken bir hata oluştu."))
 
-        if st.button("✅ Kahvaltı Menüsünü Kaydet", use_container_width=True):
-            st.session_state[MONTHLY_BREAKFAST_MENU_SESSION_KEY][selected_month] = monthly_menu
-            st.success(f"{selected_month} {current_year} kahvaltı menüsü kaydedildi.")
+    elif selected_meal_type == "Kahvaltı":
+        payload = {
+            "yil": current_year,
+            "ay": selected_month,
+            "tur": "Kahvaltı",
+            "gunler": monthly_menu
+        }
+
+        res = save_monthly_meal_menu(payload)
+
+        if res.get("status") == "success":
+            st.success(f"{selected_month} {current_year} kahvaltı menüsü başarıyla kaydedildi!")
+        else:
+            st.error(res.get("message", "Aylık kahvaltı menüsü kaydedilirken bir hata oluştu."))
 
 
 def main() -> None:

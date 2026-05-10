@@ -2,7 +2,7 @@ import requests
 import streamlit as st
 
 # FastAPI sunucusunun çalıştığı adres ve port
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "http://127.0.0.1:8001"
 
 # ---------------------------------------------------------
 # 1. DUYURU İŞLEMLERİ (GET & POST)
@@ -46,13 +46,23 @@ def get_meal_menu():
         print(f"HATA (Menü Çekme): {e}")
         return "Yemek listesi şu an yüklenemiyor."
 
+def get_breakfast_menu():
+    """FastAPI'den günün kahvaltı menüsü metnini çeker."""
+    try:
+        response = requests.get(f"{BASE_URL}/breakfast-menu", timeout=5)
+        response.raise_for_status()
+        return response.json().get("menu", "Kahvaltı menüsü bilgisi alınamadı.")
+    except Exception as e:
+        print(f"HATA (Kahvaltı Menü Çekme): {e}")
+        return "Kahvaltı menüsü şu an yüklenemiyor."
+
 def update_meal_api(new_menu: str):
     """Personel tarafından güncellenen menü metnini API'ye iletir."""
     try:
         # Menü metnini query parameter (sorgu parametresi) olarak gönderiyoruz
         response = requests.put(
-            f"{BASE_URL}/meal-menu", 
-            params={"menu_text": new_menu}, 
+            f"{BASE_URL}/meal-menu",
+            params={"menu_text": new_menu},
             timeout=5
         )
         return response.json()
@@ -73,6 +83,16 @@ def get_monthly_meal_menu():
         return {}
 
 
+def get_monthly_breakfast_menu():
+    try:
+        response = requests.get(f"{BASE_URL}/monthly-breakfast-menu", timeout=5)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"HATA (Aylık Kahvaltı Menü Çekme): {e}")
+        return {}
+
+
 def save_monthly_meal_menu(payload: dict):
     """Aylık menü paketini (yıl, ay ve günler) FastAPI'ye fırlatır."""
     try:
@@ -85,14 +105,24 @@ def save_monthly_meal_menu(payload: dict):
 # ---------------------------------------------------------
 
 # services/api_service.py içindeki ilgili fonksiyonu bununla değiştir:
-def send_fault_report(baslik: str, detay: str, ogrenci_no: str):
+def send_fault_report(baslik: str, detay: str, ogrenci_no: str, gorsel=None):
     """Öğrencinin oluşturduğu arıza bildirimini API'ye kaydeder. Oda no otomatik bulunur."""
+    import base64
+    
     payload = {
         "baslik": baslik,
         "detay": detay,
         "ogrenci_no": ogrenci_no 
         # oda_no kısmını buradan tamamen sildik!
     }
+    
+    # Görsel varsa base64'e çevir ve payload'a ekle
+    if gorsel is not None:
+        # Streamlit'in UploadedFile objesini base64'e çevir
+        image_bytes = gorsel.read()
+        encoded_image = base64.b64encode(image_bytes).decode('utf-8')
+        payload["gorsel"] = encoded_image
+    
     try:
         response = requests.post(f"{BASE_URL}/report-fault", json=payload, timeout=5)
         if response.status_code == 200:
