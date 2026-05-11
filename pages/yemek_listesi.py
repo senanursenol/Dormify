@@ -6,7 +6,6 @@ from core.constants import ROLE_STAFF, STAFF_LOGIN_PAGE
 from core.styles import load_student_panel_page_styles
 from services.api_service import get_monthly_meal_menu, save_monthly_meal_menu, get_monthly_breakfast_menu
 
-
 MONTHLY_DINNER_MENU_SESSION_KEY = "monthly_food_calendar"
 MONTHLY_BREAKFAST_MENU_SESSION_KEY = "monthly_breakfast_calendar"
 MONTHLY_DAY_LABELS_KEY = "monthly_food_day_labels"
@@ -41,11 +40,9 @@ def init_monthly_menu_state() -> None:
     if MONTHLY_SELECTED_MEAL_TYPE_KEY not in st.session_state:
         st.session_state[MONTHLY_SELECTED_MEAL_TYPE_KEY] = "Akşam Yemeği"
 
-    # Akşam yemeği eski database yapısıyla aynı tutuluyor
     if MONTHLY_DINNER_MENU_SESSION_KEY not in st.session_state:
         st.session_state[MONTHLY_DINNER_MENU_SESSION_KEY] = create_empty_monthly_menu()
 
-    # Kahvaltı şimdilik database'e bağlı değil, sadece session'da tutuluyor
     if MONTHLY_BREAKFAST_MENU_SESSION_KEY not in st.session_state:
         st.session_state[MONTHLY_BREAKFAST_MENU_SESSION_KEY] = create_empty_monthly_menu()
 
@@ -60,18 +57,13 @@ def init_monthly_menu_state() -> None:
 
 
 def sync_monthly_menu_from_api() -> None:
-    """
-    Hem akşam yemeği hem kahvaltı menüsü database'den çekiliyor.
-    """
     if st.session_state.get(MONTHLY_MENU_LOADED_KEY):
         return
 
-    # Akşam yemeği menüsünü çek
     dinner_menu_data = get_monthly_meal_menu()
     if isinstance(dinner_menu_data, dict) and dinner_menu_data:
         st.session_state[MONTHLY_DINNER_MENU_SESSION_KEY] = dinner_menu_data
 
-    # Kahvaltı menüsünü çek
     breakfast_menu_data = get_monthly_breakfast_menu()
     if isinstance(breakfast_menu_data, dict) and breakfast_menu_data:
         st.session_state[MONTHLY_BREAKFAST_MENU_SESSION_KEY] = breakfast_menu_data
@@ -131,13 +123,13 @@ def render_monthly_food_calendar() -> None:
 
     for i, day_name in enumerate(weekdays):
         with header_cols[i]:
-            st.markdown(
+            # SİHİR HATASINI ÖNLEMEK İÇİN `_ =` EKLEDİK
+            _ = st.markdown(
                 f'<div class="weekday-header">{day_name}</div>',
                 unsafe_allow_html=True,
             )
 
     month_matrix = calendar.monthcalendar(current_year, month_index)
-
     monthly_menu = get_active_menu(selected_meal_type, selected_month)
 
     for week in month_matrix:
@@ -146,13 +138,15 @@ def render_monthly_food_calendar() -> None:
         for i, day in enumerate(week):
             with cols[i]:
                 if day == 0:
-                    st.markdown(
+                    # SİHİR HATASINI ÖNLEMEK İÇİN `_ =` EKLEDİK
+                    _ = st.markdown(
                         '<div style="min-height: 112px;"></div>',
                         unsafe_allow_html=True
                     )
                 else:
                     with st.container(border=True):
-                        st.markdown(
+                        # SİHİR HATASINI ÖNLEMEK İÇİN `_ =` EKLEDİK
+                        _ = st.markdown(
                             f"""
                             <div style="
                                 text-align: center;
@@ -178,8 +172,9 @@ def render_monthly_food_calendar() -> None:
                             placeholder_text = "Akşam yemeği menüsü..."
                             textarea_key = f"dinner_day_{selected_month}_{day}"
 
+                        # UYARIYI ÇÖZMEK İÇİN label KISMINA f"{day}. Gün" VERDİK
                         monthly_menu[key_day] = st.text_area(
-                            "",
+                            label=f"{day}. Gün", 
                             value=monthly_menu.get(key_day, ""),
                             placeholder=placeholder_text,
                             key=textarea_key,
@@ -188,11 +183,11 @@ def render_monthly_food_calendar() -> None:
 
     update_active_menu(selected_meal_type, selected_month, monthly_menu)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    # SİHİR HATASINI ÖNLEMEK İÇİN `_ =` EKLEDİK
+    _ = st.markdown("<br>", unsafe_allow_html=True)
 
     # ---------------- KAYDETME BUTONLARI VE İŞLEMLERİ ----------------
     if selected_meal_type == "Akşam Yemeği":
-        # Tüm kaydetme işlemini butonun İÇİNE alıyoruz (Girintiye dikkat!)
         if st.button("💾 Akşam Yemeği Menüsünü Kaydet", type="primary", use_container_width=True):
             payload = {
                 "yil": current_year,
@@ -208,7 +203,6 @@ def render_monthly_food_calendar() -> None:
                 st.error(res.get("message", "Aylık yemek menüsü kaydedilirken bir hata oluştu."))
 
     elif selected_meal_type == "Kahvaltı":
-        # Tüm kaydetme işlemini butonun İÇİNE alıyoruz
         if st.button("💾 Kahvaltı Menüsünü Kaydet", type="primary", use_container_width=True):
             payload = {
                 "yil": current_year,

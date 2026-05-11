@@ -1,5 +1,7 @@
 import streamlit as st
 from typing import Dict
+import base64
+from binascii import Error as BinasciiError
 
 from core.auth import get_student_no, redirect_if_not_logged_in
 from core.constants import (
@@ -7,15 +9,8 @@ from core.constants import (
     STUDENT_LOGIN_PAGE,
     STUDENT_PANEL_PAGE,
 )
-import base64
-from binascii import Error as BinasciiError
-
 from core.styles import load_student_notifications_page_styles
-
-from services.api_service import (
-    get_student_faults,
-    update_fault_api
-)
+from services.api_service import get_student_faults, get_fault_image_api
 from services.fault_service import get_status_counts
 
 
@@ -28,51 +23,21 @@ def render_back_button() -> None:
 
 def render_stats(pending_count: int, solved_count: int, total_count: int) -> None:
     col1, col2, col3 = st.columns(3)
-
     with col1:
-        st.markdown(
-            f"""
-            <div class="stat-card">
-                <div class="stat-icon">⏳</div>
-                <div class="stat-number">{pending_count}</div>
-                <div class="stat-label">Beklemede</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
+        st.markdown(f'<div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-number">{pending_count}</div><div class="stat-label">Beklemede</div></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown(
-            f"""
-            <div class="stat-card">
-                <div class="stat-icon">✅</div>
-                <div class="stat-number">{solved_count}</div>
-                <div class="stat-label">Çözüldü</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
+        st.markdown(f'<div class="stat-card"><div class="stat-icon">✅</div><div class="stat-number">{solved_count}</div><div class="stat-label">Çözüldü</div></div>', unsafe_allow_html=True)
     with col3:
-        st.markdown(
-            f"""
-            <div class="stat-card">
-                <div class="stat-icon">📋</div>
-                <div class="stat-number">{total_count}</div>
-                <div class="stat-label">Toplam</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        st.markdown(f'<div class="stat-card"><div class="stat-icon">📋</div><div class="stat-number">{total_count}</div><div class="stat-label">Toplam</div></div>', unsafe_allow_html=True)
 
 
 def render_empty_state() -> None:
     st.markdown(
         """
-        <div class="empty-state">
-            <div class="empty-icon">📭</div>
-            <h3>Bildiriminiz bulunmuyor</h3>
-            <p>Henüz arıza bildirimi oluşturmadınız.</p>
+        <div class="empty-state" style="text-align: center; padding: 3rem; background-color: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1; margin-top: 20px;">
+            <div style="font-size: 3rem; margin-bottom: 10px;">📭</div>
+            <h3 style="color: #334155; margin:0;">Kayıt Bulunmuyor</h3>
+            <p style="color: #64748b; margin-top: 5px;">Henüz bir arıza bildirimi oluşturmadınız.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -81,111 +46,58 @@ def render_empty_state() -> None:
 
 def get_status_info(fault: Dict) -> tuple[str, str, str]:
     db_durum = fault.get("durum", "Beklemede")
-
-    if db_durum == "Çözüldü":
-        return "solved", "Çözüldü", "✅"
-    elif db_durum == "İptal Edildi":
-        return "cancelled", "İptal Edildi", "❌"
-    else:
-        return "pending", "Beklemede", "⏳"
-
-
-def cancel_fault(fault_id: int) -> None:
-    res = update_fault_api(fault_id, "İptal Edildi")
-    if res.get("status") == "success":
-        st.rerun()
-    else:
-        st.error("Bildirim iptal edilemedi.")
-
-
-def get_fault_image(fault: Dict):
-    """
-    Backend hangi isimle görsel bilgisini döndürüyorsa onu yakalamak için
-    birkaç farklı alan adı kontrol ediyoruz.
-    """
-    return (
-        fault.get("gorsel_url")
-        or fault.get("image_url")
-        or fault.get("foto_url")
-        or fault.get("resim_url")
-        or fault.get("gorsel")
-    )
+    if db_durum == "Çözüldü": return "solved", "Çözüldü", "✅"
+    elif db_durum == "İptal Edildi": return "cancelled", "İptal", "❌"
+    else: return "pending", "Beklemede", "⏳"
 
 
 def decode_base64_image(image_value):
-    if not isinstance(image_value, str):
-        return image_value
-
+    if not isinstance(image_value, str): return image_value
     if image_value.startswith("data:image"):
         try:
-            header, _, data = image_value.partition(",")
+            _, _, data = image_value.partition(",")
             return base64.b64decode(data)
-        except (BinasciiError, ValueError):
-            return image_value
-
+        except (BinasciiError, ValueError): return image_value
     try:
         return base64.b64decode(image_value)
-    except (BinasciiError, ValueError):
-        return image_value
+    except (BinasciiError, ValueError): return image_value
 
 
 def render_fault_card(index: int, fault: Dict) -> None:
     status, status_label, status_icon = get_status_info(fault)
-
-    oda_no = fault.get("oda_no", "-")
+    fault_id = fault.get("id")
     tarih = fault.get("tarih", "-")
-    ogrenci_no = fault.get("ogrenci_no", "-")
     aciklama = fault.get("aciklama") or fault.get("detay") or "Açıklama belirtilmedi."
-    fault_image = decode_base64_image(get_fault_image(fault))
+    baslik = fault.get("baslik", "Arıza Bildirimi")
 
     with st.container(border=True):
-        # ÜST SATIR
-        # X butonu kaldırıldığı için sağ kolon kullanmıyoruz.
-        st.markdown(f"#### 🚪 {oda_no} No'lu Oda")
-        st.caption(f"📅 {tarih}   |   👤 {ogrenci_no}")
-
-        # AÇIKLAMA
-        st.write(aciklama)
-
-        # GÖRSEL
-        if fault_image:
-            st.markdown("##### 📷 Arıza Görseli")
-            st.image(
-                fault_image,
-                caption="Öğrencinin yüklediği arıza görseli",
-                use_container_width=False,
-                width=350
-            )
-
-        # ALT SATIR
-        left2, right2 = st.columns([4, 2])
-
-        with left2:
-            st.empty()
-
-        with right2:
-            badge_col, cancel_col = st.columns([2, 2])
-
-            with badge_col:
-                st.markdown(
-                    f'<div class="native-badge {status}">{status_icon} {status_label}</div>',
-                    unsafe_allow_html=True,
-                )
-
-            with cancel_col:
-                if status == "pending" and fault.get("id"):
-                    if st.button("İptal", key=f"iptal_{index}", use_container_width=True):
-                        cancel_fault(fault["id"])
-
-        st.markdown('<div class="card-gap"></div>', unsafe_allow_html=True)
-
-
-def render_fault_list(faults: list[Dict]) -> None:
-    if not faults:
-        render_empty_state()
-    else:
-        for index, fault in enumerate(faults):
-            render_fault_card(index, fault)
+        # 1. SATIR: Başlık ve Rozet (Yan yana çok şık duracak)
+        c1, c2 = st.columns([3, 1])
+        with c1:
+            st.markdown(f"**📌 {baslik}**")
+            st.caption(f"📅 Tarih: {tarih}")
+        with c2:
+            st.markdown(f'<div class="native-badge {status}" style="float: right; margin-top: 5px;">{status_icon} {status_label}</div>', unsafe_allow_html=True)
+        
+        # Hafif bir çizgi ile metni ayıralım
+        st.markdown("<hr style='margin: 8px 0; border: none; border-top: 1px solid #f1f5f9;'>", unsafe_allow_html=True)
+        
+        # 2. SATIR: Açıklama (Zarif bir gri tonla)
+        st.markdown(f"<div style='color: #475569; font-size: 0.95rem; margin-bottom: 12px; line-height: 1.5;'>{aciklama}</div>", unsafe_allow_html=True)
+        
+        # 3. SATIR: Görsel Butonu ve Gösterim Alanı
+        gorsel_tutucu = st.empty()
+        
+        # Butonu küçük ve kibar yapıyoruz
+        if st.button("🖼️ Görseli Yükle", key=f"img_btn_{fault_id}", help="Tıklayarak fotoğrafı görebilirsiniz"):
+            with st.spinner("Yükleniyor..."):
+                gorsel_base64 = get_fault_image_api(fault_id)
+                if gorsel_base64:
+                    g = decode_base64_image(gorsel_base64)
+                    if g: 
+                        gorsel_tutucu.image(g, width="stretch")
+                else:
+                    gorsel_tutucu.markdown("*Bu arızaya ait bir görsel eklenmemiş.*")
 
 
 def main() -> None:
@@ -194,12 +106,19 @@ def main() -> None:
 
     student_number = get_student_no()
     faults = get_student_faults(student_number)
-
     pending_count, solved_count, total_count = get_status_counts(faults)
 
     render_back_button()
     render_stats(pending_count, solved_count, total_count)
-    render_fault_list(faults)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.subheader("📋 Gönderdiğiniz Arıza Kayıtları")
+    
+    if not faults:
+        render_empty_state()
+    else:
+        for index, fault in enumerate(faults):
+            render_fault_card(index, fault)
 
 
 if __name__ == "__main__":

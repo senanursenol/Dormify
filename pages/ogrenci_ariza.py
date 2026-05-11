@@ -101,6 +101,9 @@ def render_form(student_number: str) -> None:
                     )
 
                 if result["status"] == "success":
+                    # --- SİHİRLİ DOKUNUŞ BURADA ---
+                    st.cache_data.clear() # Tüm önbelleği siler, sistemi yeni verileri anında çekmeye zorlar!
+                    # ------------------------------
                     st.session_state[SESSION_FAULT_SENT] = True
                     st.rerun()
                 else:

@@ -1,5 +1,9 @@
 import logging
+import io
+import base64
 
+from sqlalchemy.orm import defer
+from PIL import Image
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -7,6 +11,7 @@ from typing import List, Optional, Dict
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from datetime import datetime
+from sqlalchemy import or_
 
 # VERİTABANI VE GÜVENLİK İÇİN GEREKLİLER
 from core.database import SessionLocal, engine
@@ -86,9 +91,40 @@ def list_announcements(db: Session = Depends(get_db)):
 
 @app.post("/announcements", tags=["Duyurular"])
 def add_announcement(duyuru: dict, db: Session = Depends(get_db)):
+    
+    # --- GÖRSEL SIKIŞTIRMA MANTIĞI (Arızalardaki gibi) ---
+    gorsel_verisi = duyuru.get('gorsel')
+    if gorsel_verisi and len(gorsel_verisi) > 100:
+        try:
+            import io, base64
+            from PIL import Image
+            
+            # Başında "data:image..." varsa ayıklıyoruz, yoksa direkt alıyoruz
+            header, encoded = gorsel_verisi.split(",", 1) if "," in gorsel_verisi else ("", gorsel_verisi)
+            image_data = base64.b64decode(encoded)
+            image = Image.open(io.BytesIO(image_data))
+            
+            # Şeffaf PNG ise RGB'ye çevirip arka planı düzeltiyoruz
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+                
+            # Duyuru afişi olduğu için boyutu 1000x1000 yapalım (biraz daha net olsun)
+            image.thumbnail((1000, 1000)) 
+            byte_arr = io.BytesIO()
+            image.save(byte_arr, format='JPEG', quality=65, optimize=True)
+            
+            # Veritabanına temiz ve küçücük bir metin olarak kaydediyoruz
+            gorsel_verisi = f"data:image/jpeg;base64,{base64.b64encode(byte_arr.getvalue()).decode('utf-8')}"
+            print("✅ Duyuru afişi başarıyla sıkıştırıldı!")
+        except Exception as e:
+            print(f"⚠️ Duyuru görseli sıkıştırma hatası: {e}")
+            gorsel_verisi = None
+    # -------------------------------------------------------
+
     yeni_duyuru = models.Duyuru(
         baslik=duyuru.get('baslik'),
         icerik=duyuru.get('icerik'),
+        gorsel=gorsel_verisi, # Artık sıkıştırılmış küçük görsel gidiyor
         etiket=duyuru.get('etiket', 'YENİ'),
         renk=duyuru.get('renk', '#3b82f6')
     )
@@ -220,6 +256,8 @@ def save_monthly_menu(req: MonthlyMenuPayload, db: Session = Depends(get_db)):
 # ---------------------------------------------------------
 # 3. ÖĞRENCİ VE ARIZA İŞLEMLERİ (VERİTABANI BAĞLANTILI)
 # ---------------------------------------------------------
+
+
 class StudentCreate(BaseModel):
     username: str
     password: str
@@ -243,39 +281,93 @@ def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     return {"status": "success", "message": "Öğrenci başarıyla kaydedildi."}
 
 @app.get("/faults", tags=["Arıza İşlemleri"])
-def list_faults(db: Session = Depends(get_db)):
-    return db.query(models.ArizaKaydi).all()
+def get_all_faults(db: Session = Depends(get_db)):
+    try:
+        # SİHİRLİ SATIR: Görsel sütununu çekmeyi erteliyoruz (.options(defer(...)))
+        arizalar = db.query(models.ArizaKaydi).options(
+            defer(models.ArizaKaydi.gorsel)
+        ).order_by(models.ArizaKaydi.id.desc()).all()
+        
+        # Sonuçları personele göndermeden önce "Numaraları İsimlerle" değiştiriyoruz
+        sonuclar = []
+        for a in arizalar:
+            ogrenci = db.query(models.Ogrenci).filter(models.Ogrenci.ogrenci_no == a.ogrenci_no).first()
+            gosterilecek_isim = ogrenci.ad_soyad if ogrenci else a.ogrenci_no
+            
+            sonuclar.append({
+                "id": a.id,
+                "ogrenci_no": gosterilecek_isim, # <--- Personel paneline numarayı değil ismi gönderiyoruz!
+                "oda_no": a.oda_no,
+                "baslik": a.baslik,
+                "aciklama": a.aciklama,
+                "durum": a.durum,
+                "tarih": a.tarih
+            })
+            
+        return sonuclar
+    except Exception as e:
+        print(f"🔥 GET TÜM ARIZALAR HATASI: {e}")
+        return []
 
 @app.post("/report-fault", tags=["Arıza İşlemleri"])
 def create_fault(ariza: dict, db: Session = Depends(get_db)):
     try:
-        gelen_ogrenci_no = ariza.get('ogrenci_no', 'Bilinmiyor')
+        gelen_no = str(ariza.get('ogrenci_no', '')).strip()
+        print(f"🔍 Arıza bildirimi geldi. Aranan Öğrenci No: '{gelen_no}'")
+
+        ogrenci = db.query(models.Ogrenci).filter(models.Ogrenci.ogrenci_no == gelen_no).first()
         
-        # Görsel verisini işle (base64 string olarak)
-        gorsel_data = ariza.get('gorsel')
-        
-        # 1. Gelen numarayla veritabanındaki öğrenciyi buluyoruz
-        ogrenci = db.query(models.Ogrenci).filter(models.Ogrenci.ogrenci_no == gelen_ogrenci_no).first()
-        
-        # 2. Eğer öğrenci kayıtlıysa odasını al, değilse 'Bilinmiyor' yaz
-        bulunan_oda = ogrenci.oda_no if ogrenci else "Bilinmiyor"
-        
+        if ogrenci:
+            print(f"✅ Öğrenci Bulundu: {ogrenci.ad_soyad}, Oda: {ogrenci.oda_no}")
+            bulunan_oda = ogrenci.oda_no
+        else:
+            print(f"❌ HATA: Öğrenci bulunamadı!")
+            bulunan_oda = "Bilinmiyor"
+
+        # --- GÜNCELLENEN GÖRSEL SIKIŞTIRMA KISMI ---
+        gorsel_verisi = ariza.get('gorsel')
+        if gorsel_verisi and len(gorsel_verisi) > 100:
+            try:
+                import io, base64
+                from PIL import Image
+                header, encoded = gorsel_verisi.split(",", 1) if "," in gorsel_verisi else ("", gorsel_verisi)
+                image_data = base64.b64decode(encoded)
+                image = Image.open(io.BytesIO(image_data))
+                
+                # SİHİRLİ SATIR: Eğer görsel PNG/RGBA (şeffaf) ise, onu JPEG uyumlu RGB'ye çevir!
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                    
+                image.thumbnail((800, 800))
+                byte_arr = io.BytesIO()
+                image.save(byte_arr, format='JPEG', quality=60, optimize=True)
+                gorsel_verisi = f"data:image/jpeg;base64,{base64.b64encode(byte_arr.getvalue()).decode('utf-8')}"
+                print("✅ Görsel başarıyla sıkıştırıldı!")
+            except Exception as img_err:
+                print(f"⚠️ Görsel sıkıştırma hatası: {img_err}")
+                # Görsel sıkıştırılamazsa veritabanını çökertmemek için görseli boş gönderiyoruz
+                gorsel_verisi = None 
+        # ------------------------------------------
+
         yeni_ariza = models.ArizaKaydi(
-            ogrenci_no=gelen_ogrenci_no,
+            ogrenci_no=gelen_no,  # <--- DÜZELTME: Veritabanına isim değil, numara kaydediyoruz!
             baslik=ariza.get('baslik', 'Arıza Bildirimi'),
             aciklama=ariza.get('detay'),
-            oda_no=bulunan_oda,  # <--- ARTIK ÖĞRENCİ TABLOSUNDAN OTOMATİK GELİYOR!
-            gorsel=gorsel_data,  # Görsel verisini ekle
+            oda_no=bulunan_oda,
+            gorsel=gorsel_verisi,
             durum="Beklemede"
         )
         db.add(yeni_ariza)
         db.commit()
-        return {"status": "success", "message": "Arıza veritabanına kaydedildi."}
+        db.refresh(yeni_ariza)
+        print("✅ Arıza veritabanına başarıyla kaydedildi!")
+        return {"status": "success"}
+        
     except Exception as e:
         db.rollback()
-        logging.exception("create_fault error")
-        raise HTTPException(status_code=500, detail=f"Sunucu hatası: {e}")
-
+        print(f"🔥 Kritik Hata: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @app.put("/update-fault/{fault_id}", tags=["Arıza İşlemleri"])
 def update_fault_status(fault_id: int, yeni_durum: str, db: Session = Depends(get_db)):
     ariza = db.query(models.ArizaKaydi).filter(models.ArizaKaydi.id == fault_id).first()
@@ -285,9 +377,40 @@ def update_fault_status(fault_id: int, yeni_durum: str, db: Session = Depends(ge
     db.commit()
     return {"status": "success", "message": f"ID {fault_id} durumu {yeni_durum} yapıldı."}
 
-@app.get("/student-faults/{student_no}", tags=["Arıza İşlemleri"])
-def get_student_faults(student_no: str, db: Session = Depends(get_db)):
-    return db.query(models.ArizaKaydi).filter(models.ArizaKaydi.ogrenci_no == student_no).all()
+from sqlalchemy import or_
+
+@app.get("/student-faults/{student_number}")
+def get_student_faults(student_number: str, db: Session = Depends(get_db)):
+    from sqlalchemy.orm import defer
+    
+    try:
+        # 1. Önce bu numaranın kime ait olduğunu (ismini) bulalım
+        ogrenci = db.query(models.Ogrenci).filter(models.Ogrenci.ogrenci_no == student_number).first()
+        aranacak_isim = ogrenci.ad_soyad if ogrenci else "Bilinmiyor"
+
+        # 2. Veritabanında HEM numarayı HEM de ismi arayalım! 
+        # (Böylece eski hatalı kayıtlar da yeni doğru kayıtlar da listelenir)
+        arizalar = db.query(models.ArizaKaydi).filter(
+            or_(
+                models.ArizaKaydi.ogrenci_no == student_number,
+                models.ArizaKaydi.ogrenci_no == aranacak_isim
+            )
+        ).options(defer(models.ArizaKaydi.gorsel)).order_by(models.ArizaKaydi.id.desc()).all()
+        
+        print(f"✅ Öğrenci paneli için {len(arizalar)} adet arıza başarıyla çekildi!")
+        return arizalar
+        
+    except Exception as e:
+        print(f"🔥 GET ÖĞRENCİ ARIZALARI HATASI: {e}")
+        return []
+
+@app.get("/fault-image/{fault_id}", tags=["Arıza İşlemleri"])
+def get_fault_image(fault_id: int, db: Session = Depends(get_db)):
+    # Sadece o ID'ye ait arızayı bul
+    ariza = db.query(models.ArizaKaydi).filter(models.ArizaKaydi.id == fault_id).first()
+    if ariza and ariza.gorsel:
+        return {"gorsel": ariza.gorsel}
+    return {"gorsel": None}
 
 @app.delete("/delete-fault/{fault_id}", tags=["Arıza İşlemleri"])
 def delete_fault(fault_id: int, db: Session = Depends(get_db)):

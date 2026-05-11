@@ -58,7 +58,7 @@ def render_hero(lottie_json) -> None:
     if lottie_json:
         st_lottie(lottie_json, height=350, key="main_home_anim")
 
-    st.markdown(
+    _ = st.markdown(
         """
         <div style="text-align: center; margin-top: -20px; margin-bottom: 50px;">
             <h1 style="font-size: 3.5rem; font-weight:900; color:#1e293b; margin:0;">
@@ -74,96 +74,136 @@ def render_hero(lottie_json) -> None:
     )
 
 def render_announcements() -> None:
-    """Arel Üniversitesi Tarzı: Üstte Otomatik Slider, Altta Bilgi Kartları."""
-    st.markdown('<h3 style="color:#1e293b; margin-bottom:20px;">📢 Güncel Bilgilendirmeler</h3>', unsafe_allow_html=True)
+    """Sade, Büyütme Özelliği Olmayan Kararlı Slider."""
+    import streamlit.components.v1 as components
+
+    _ = st.markdown('<h3 style="color:#1e293b; margin-bottom:20px;">📢 Güncel Bilgilendirmeler</h3>', unsafe_allow_html=True)
     duyurular = st.session_state.get(SESSION_ANNOUNCEMENTS, [])
 
     if not duyurular:
         st.info("Şu an aktif bir duyuru bulunmamaktadır.")
         return
 
-    # --- BÖLÜM 1: ÖNE ÇIKAN SLIDER (İlk 3 Duyuru) ---
     slider_data = duyurular[:3]
     slides_html = ""
     dots_html = ""
     
     for i, duyuru in enumerate(slider_data):
         gorsel_verisi = duyuru.get('gorsel', '')
-        # Base64 kontrolü ve formatlama
-        src = f"data:image/jpeg;base64,{gorsel_verisi}" if (gorsel_verisi and len(gorsel_verisi) > 100) else gorsel_verisi
-        
-        img_tag = f'<img src="{src}" class="slider-img">' if gorsel_verisi else f'<div class="slider-fallback" style="background:{duyuru.get("renk", "#3b82f6")}">📢</div>'
+        if gorsel_verisi:
+            src = gorsel_verisi if gorsel_verisi.startswith("data:image") else f"data:image/jpeg;base64,{gorsel_verisi}"
+        else:
+            src = ""
+
+        if src:
+            img_tag = f'<img src="{src}" class="slider-img">'
+        else:
+            img_tag = f'<div class="slider-img" style="background:{duyuru.get("renk", "#3b82f6")}; display:flex; align-items:center; justify-content:center; font-size:40px; color:white; border-radius:12px;">📢</div>'
 
         slides_html += f"""
         <div class="mySlides fade">
-            <div class="slider-box">
+            <div class="img-box">
                 {img_tag}
-                <div class="slider-desc">
-                    <h4>{duyuru.get('baslik')}</h4>
-                    <p>{duyuru.get('icerik')[:150]}...</p>
-                </div>
+            </div>
+            <div class="slider-desc">
+                <h4>{duyuru.get('baslik')}</h4>
+                <p>{duyuru.get('icerik')[:120]}...</p>
             </div>
         </div>
         """
         dots_html += f'<span class="dot" onclick="currentSlide({i+1})"></span>'
 
-    st.markdown(f"""
-        <style>
-        .slideshow-container {{ max-width: 100%; position: relative; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }}
-        .slider-box {{ position: relative; height: 420px; }}
-        .slider-img {{ width: 100%; height: 420px; object-fit: cover; display: block; }}
-        .slider-fallback {{ width: 100%; height: 420px; display:flex; align-items:center; justify-content:center; font-size:60px; color:white; }}
-        .slider-desc {{ 
-            position: absolute; bottom: 0; left: 0; right: 0; 
-            background: linear-gradient(transparent, rgba(0,0,0,0.9)); 
-            color: white; padding: 60px 25px 25px 25px; text-align: left;
-        }}
-        .slider-desc h4 {{ margin: 0; font-size: 26px; color: white !important; font-weight: 800; }}
-        .slider-desc p {{ margin: 10px 0 0 0; font-size: 15px; opacity: 0.9; line-height: 1.4; }}
-        .dot {{ cursor: pointer; height: 12px; width: 12px; margin: 0 5px; background-color: #cbd5e1; border-radius: 50%; display: inline-block; transition: 0.3s; }}
-        .active {{ background-color: #3b82f6; width: 30px; border-radius: 10px; }}
-        .fade {{ animation: fade 1.5s; }}
-        @keyframes fade {{ from {{opacity: .4}} to {{opacity: 1}} }}
-        </style>
-        
-        <div class="slideshow-container">{slides_html}</div>
-        <div style="text-align:center; margin-top:15px; margin-bottom:30px;">{dots_html}</div>
-        
-        <script>
-            let sIdx = 0;
-            let timeout;
-            function runSlides() {{
-                let s = document.getElementsByClassName("mySlides");
-                let d = document.getElementsByClassName("dot");
-                if(!s.length) return;
-                for(let i=0; i<s.length; i++) s[i].style.display = "none";
-                sIdx++;
-                if(sIdx > s.length) sIdx = 1;
-                for(let i=0; i<d.length; i++) d[i].className = d[i].className.replace(" active", "");
-                s[sIdx-1].style.display = "block";
-                d[sIdx-1].className += " active";
-                timeout = setTimeout(runSlides, 5000);
-            }}
-            runSlides();
-        </script>
-    """, unsafe_allow_html=True)
+    html_code = f"""
+    <html>
+    <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      body {{ margin: 0; font-family: system-ui, sans-serif; background: transparent; overflow:hidden; }}
+      .slideshow-container {{ position: relative; max-width: 100%; margin: auto; height: 430px; }}
+      .mySlides {{ display: none; height: 100%; text-align: center; }}
+      .img-box {{ height: 330px; display: flex; align-items: center; justify-content: center; }}
+      .slider-img {{ max-width: 100%; max-height: 100%; border-radius: 12px; object-fit: contain; }}
+      .slider-desc {{ padding: 10px; color: #1e293b; text-align: center; }}
+      .slider-desc h4 {{ margin: 0; font-size: 18px; font-weight: 800; }}
+      .slider-desc p {{ margin: 5px 0 0 0; font-size: 13px; color: #64748b; }}
+      .prev, .next {{ cursor: pointer; position: absolute; top: 35%; width: auto; padding: 12px; color: #1e293b; font-weight: bold; font-size: 20px; border-radius: 50%; background: rgba(255,255,255,0.7); user-select: none; text-decoration: none; z-index: 10; }}
+      .next {{ right: 5px; }} .prev {{ left: 5px; }}
+      .dots-container {{ text-align: center; padding: 5px 0; }}
+      .dot {{ cursor: pointer; height: 10px; width: 10px; margin: 0 4px; background-color: #cbd5e1; border-radius: 50%; display: inline-block; }}
+      .active {{ background-color: #3b82f6; width: 25px; border-radius: 10px; }}
+      .fade {{ animation: fade 0.8s; }}
+      @keyframes fade {{ from {{opacity: 0.4}} to {{opacity: 1}} }}
+    </style>
+    </head>
+    <body>
+      <div class="slideshow-container">
+        {slides_html}
+        <a class="prev" onclick="plusSlides(-1)">&#10094;</a>
+        <a class="next" onclick="plusSlides(1)">&#10095;</a>
+      </div>
+      <div class="dots-container">
+        {dots_html}
+      </div>
 
-    # --- BÖLÜM 2: DİĞER DUYURULAR (Grid) ---
+      <script>
+        let slideIndex = 1;
+        let slideTimer;
+
+        function showSlides(n) {{
+          let i;
+          let slides = document.getElementsByClassName("mySlides");
+          let dots = document.getElementsByClassName("dot");
+          if (!slides.length) return;
+          if (n > slides.length) slideIndex = 1;
+          if (n < 1) slideIndex = slides.length;
+          for (i = 0; i < slides.length; i++) slides[i].style.display = "none";
+          for (i = 0; i < dots.length; i++) dots[i].className = dots[i].className.replace(" active", "");
+          slides[slideIndex-1].style.display = "block";
+          dots[slideIndex-1].className += " active";
+        }}
+
+        function plusSlides(n) {{
+          clearTimeout(slideTimer);
+          showSlides(slideIndex += n);
+          slideTimer = setTimeout(autoSlides, 5000);
+        }}
+
+        function currentSlide(n) {{
+          clearTimeout(slideTimer);
+          showSlides(slideIndex = n);
+          slideTimer = setTimeout(autoSlides, 5000);
+        }}
+
+        function autoSlides() {{
+          slideIndex++;
+          showSlides(slideIndex);
+          slideTimer = setTimeout(autoSlides, 5000);
+        }}
+
+        showSlides(slideIndex);
+        slideTimer = setTimeout(autoSlides, 5000);
+      </script>
+    </body>
+    </html>
+    """
+    components.html(html_code, height=480)
+
+    # --- Diğer Duyurular ---
     if len(duyurular) > 3:
-        st.markdown('<p style="font-weight:700; color:#64748b; border-bottom:2px solid #f1f5f9; padding-bottom:10px; margin-top:20px;">📌 Tüm Bilgilendirmeler</p>', unsafe_allow_html=True)
+        _ = st.write("---")
+        _ = st.markdown('**📌 Tüm Bilgilendirmeler**')
         cols = st.columns(2)
         for idx, duyuru in enumerate(duyurular[3:]):
             with cols[idx % 2]:
                 with st.container(border=True):
                     g_v = duyuru.get('gorsel', '')
                     if g_v:
-                        src = f"data:image/jpeg;base64,{g_v}" if len(g_v) > 100 else g_v
+                        src = g_v if g_v.startswith("data:image") else f"data:image/jpeg;base64,{g_v}"
                         st.image(src, use_container_width=True)
                     st.markdown(f"**{duyuru.get('baslik')}**")
-                    st.caption(f"{duyuru.get('icerik')[:100]}...")
-                    st.markdown(f"<small style='color:#94a3b8;'>📅 {duyuru.get('tarih')}</small>", unsafe_allow_html=True)
+                    st.caption(f"{duyuru.get('icerik')[:80]}...")
 
-# ----------- YEMEK MENÜSÜ VE DİĞERLERİ -----------
+# ----------- YEMEK MENÜSÜ -----------
 
 @st.dialog("📅 Bu Ayın Yemek Takvimi", width="large")
 def render_monthly_menu_modal() -> None:
@@ -171,7 +211,7 @@ def render_monthly_menu_modal() -> None:
     MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
     current_month_name = MONTHS[now.month - 1]
 
-    st.markdown("""<style>.cal-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 15px; } .cal-th { background-color: #f8fafc; color: #1e293b; padding: 10px; text-align: center; border: 1px solid #cbd5e1; font-weight: 800; font-size: 14px; } .cal-td { border: 1px solid #cbd5e1; vertical-align: top; height: 120px; padding: 8px; background-color: white; overflow: hidden; } .cal-td-empty { background-color: #f1f5f9; border: 1px solid #cbd5e1; } .cal-today { background-color: #eff6ff; border: 2px solid #3b82f6; } .day-num { font-weight: 900; color: #3b82f6; font-size: 14px; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; } .meal-desc { font-size: 11px; color: #475569; line-height: 1.45; }</style>""", unsafe_allow_html=True)
+    _ = st.markdown("""<style>.cal-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 15px; } .cal-th { background-color: #f8fafc; color: #1e293b; padding: 10px; text-align: center; border: 1px solid #cbd5e1; font-weight: 800; font-size: 14px; } .cal-td { border: 1px solid #cbd5e1; vertical-align: top; height: 120px; padding: 8px; background-color: white; overflow: hidden; } .cal-td-empty { background-color: #f1f5f9; border: 1px solid #cbd5e1; } .cal-today { background-color: #eff6ff; border: 2px solid #3b82f6; } .day-num { font-weight: 900; color: #3b82f6; font-size: 14px; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; } .meal-desc { font-size: 11px; color: #475569; line-height: 1.45; }</style>""", unsafe_allow_html=True)
 
     def create_calendar_html(month_data: dict) -> str:
         cal_matrix = calendar.monthcalendar(now.year, now.month)
@@ -195,10 +235,17 @@ def render_monthly_menu_modal() -> None:
     t1, t2 = st.tabs(["☕ Kahvaltı", "🍽️ Akşam Yemeği"])
     with t1:
         data = get_monthly_breakfast_menu().get(current_month_name, {})
-        st.markdown(create_calendar_html(data), unsafe_allow_html=True) if data else st.info("Veri yok.")
+        if data:
+            _ = st.markdown(create_calendar_html(data), unsafe_allow_html=True)
+        else:
+            st.info("Veri yok.")
+            
     with t2:
         data = get_monthly_meal_menu().get(current_month_name, {})
-        st.markdown(create_calendar_html(data), unsafe_allow_html=True) if data else st.info("Veri yok.")
+        if data:
+            _ = st.markdown(create_calendar_html(data), unsafe_allow_html=True)
+        else:
+            st.info("Veri yok.")
 
 def format_menu_items(menu_text: str) -> str:
     if not isinstance(menu_text, str): return ""
@@ -206,12 +253,12 @@ def format_menu_items(menu_text: str) -> str:
     return "".join([f"<div class='menu-item'><span class='meal-emoji'>🌟</span><span>{item}</span></div>" for item in items])
 
 def render_menu_card() -> None:
-    st.markdown('<h3 style="color:#1e293b; margin-bottom:20px;">🍴 Bugün Ne Var?</h3>', unsafe_allow_html=True)
+    _ = st.markdown('<h3 style="color:#1e293b; margin-bottom:20px;">🍴 Bugün Ne Var?</h3>', unsafe_allow_html=True)
     m_type = st.radio("Seç", ["☕ Kahvaltı", "🍽️ Akşam"], horizontal=True, label_visibility="collapsed")
     key = "SESSION_BREAKFAST_MENU" if m_type == "☕ Kahvaltı" else SESSION_MEAL_MENU
     current_menu = st.session_state.get(key, "Yükleniyor...")
     
-    st.markdown(f"""
+    _ = st.markdown(f"""
         <style>
         .modern-menu-card {{ background: white; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; }}
         .menu-card-title {{ text-align: center; font-weight: 800; color: #1e293b; margin-bottom: 15px; }}
@@ -238,7 +285,7 @@ def main() -> None:
     col_main, col_side = st.columns([2.5, 1], gap="large")
     with col_main: render_announcements()
     with col_side: render_menu_card()
-    st.markdown("<center><p style='color:#94a3b8; padding:60px; font-size:12px;'>© 2026 Dormify | Ensar Vakfı</p></center>", unsafe_allow_html=True)
+    _ = st.markdown("<center><p style='color:#94a3b8; padding:60px; font-size:12px;'>© 2026 Dormify | Ensar Vakfı</p></center>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()

@@ -1,13 +1,12 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text
 from datetime import datetime
-# database.py dosyasından Base ve engine'i içeri alıyoruz
 from .database import Base, engine
 
 class Yonetici(Base):
     __tablename__ = "yoneticiler"
     id = Column(Integer, primary_key=True, index=True)
     kullanici_adi = Column(String(50), unique=True)
-    sifre = Column(String(100)) # Gerçek projelerde bu şifrelenir (hash)
+    sifre = Column(String(100)) 
 
 class Ogrenci(Base):
     __tablename__ = "ogrenciler"
@@ -16,7 +15,7 @@ class Ogrenci(Base):
     ogrenci_no = Column(String(20), unique=True, nullable=False)
     ad_soyad = Column(String(100))
     oda_no = Column(String(10))
-    sifre = Column(String(100)) # Başlangıç şifresi
+    sifre = Column(String(100))
 
 class ArizaKaydi(Base):
     __tablename__ = "arizalar"
@@ -26,7 +25,7 @@ class ArizaKaydi(Base):
     oda_no = Column(String(10))
     baslik = Column(String(100))
     aciklama = Column(Text)
-    gorsel = Column(Text, nullable=True)  # Görsel için base64 string alanı
+    gorsel = Column(Text, nullable=True)  # Görsel eklendi
     tarih = Column(String(50), default=lambda: datetime.now().strftime("%d.%m.%Y %H:%M"))
     durum = Column(String(20), default="Beklemede")
 
@@ -36,19 +35,20 @@ class Duyuru(Base):
     id = Column(Integer, primary_key=True, index=True)
     baslik = Column(String(100))
     icerik = Column(Text)
+    gorsel = Column(Text, nullable=True) # EKSİK OLAN GÖRSEL SÜTUNU EKLENDİ!
     etiket = Column(String(20), default="YENİ")
     renk = Column(String(20), default="#3b82f6")
     tarih = Column(String(50), default=lambda: datetime.now().strftime("%d.%m.%Y %H:%M"))
-# ---------------- YENİ EKLENEN MODEL ----------------
+
 class YemekMenusu(Base):
     __tablename__ = "yemek_menusu"
     
     id = Column(Integer, primary_key=True, index=True)
-    yil = Column(Integer, index=True)        # Hangi yıl? Örn: 2026
-    ay = Column(String(20), index=True)      # Hangi ay? Örn: "Ocak", "Şubat"
-    gun = Column(Integer)                    # Ayın kaçıncı günü? Örn: 1, 15, 31
-    tur = Column(String(20), default="Akşam Yemeği")  # Yemek türü: "Kahvaltı" veya "Akşam Yemeği"
-    icerik = Column(Text)                    # O günün yemeği: "Çorba, Pilav..."
+    yil = Column(Integer, index=True)        
+    ay = Column(String(20), index=True)      
+    gun = Column(Integer)                    
+    tur = Column(String(20), default="Akşam Yemeği")  
+    icerik = Column(Text)                    
 
 # Modelleri veritabanına yazar
 Base.metadata.create_all(bind=engine)
