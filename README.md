@@ -38,31 +38,3 @@ Proje dizininde bir sanal ortam oluşturup aktif edin:
 ```bash
 python -m venv venv
 source venv/bin/activate  # Windows için: venv\Scripts\activate
-
----
-
-## 2.Bağımlılıkları Yükleyin
-```bash
-pip install -r requirements.txt
-
----
-
-## 3. Sistemi Başlatın
-Sistemin çalışması için iki servisin de aynı anda aktif olması gerekir:
-
-Backend API:
-```bash
-uvicorn api_main:app --reload
-
-Frontend (UI):
-```bash
-streamlit run app.py
-
----
-
-👤 İletişim & Geliştirici
-Bu proje, yurt operasyonlarını dijitalleştirmek isteyen kurumlar için geliştirilmiş bir prototiptir.
-
-GitHub: senanursenol/Dormify
-
-Not: Bu proje, Clean Code prensipleri gözetilerek; veritabanı bağlantılarının güvenliği, modüler kod yapısı ve kullanıcı odaklı tasarım ilkeleriyle geliştirilmiştir.
