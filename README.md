@@ -41,13 +41,13 @@ source venv/bin/activate  # Windows için: venv\Scripts\activate
 
 ---
 
-### 2.Bağımlılıkları Yükleyin
+## 2.Bağımlılıkları Yükleyin
 ```bash
 pip install -r requirements.txt
 
 ---
 
-### 3. Sistemi Başlatın
+## 3. Sistemi Başlatın
 Sistemin çalışması için iki servisin de aynı anda aktif olması gerekir:
 
 Backend API:
